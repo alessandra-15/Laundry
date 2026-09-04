@@ -1,17 +1,13 @@
 <?php
-$host = "localhost";     // usually localhost kung XAMPP
-$username = "root";      // default username sa XAMPP
-$password = "";          // leave blank kung walang password
-$database = "laundry_db"; // palitan ng pangalan ng database mo
+$servername = "localhost";
+$username = "root";  // Default for XAMPP
+$password = "";      // Leave blank if using default XAMPP settings
+$database = "laundry_db";
 
-// Create connection
-$conn = new mysqli($host, $username, $password, $database);
+$conn = new mysqli($servername, $username, $password, $database);
 
 // Check connection
 if ($conn->connect_error) {
-    die("Connection failed: " . $conn->connect_error);
+    die("Database connection failed: " . $conn->connect_error);
 }
-
-// Optional: display message for debugging
-// echo "Connected successfully!";
 ?>
