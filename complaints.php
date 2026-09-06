@@ -1,6 +1,14 @@
 <?php
+session_start();
 // complaints.php — MangTV Complaints Management (with Update Status feature)
 include 'db_connect.php';
+// ── Admin session guard ──────────────────────────────────────────────────────
+if (empty($_SESSION['admin_id']) || empty($_SESSION['is_admin'])) {
+    header('Location: admin_login.php');
+    exit();
+}
+// ────────────────────────────────────────────────────────────────────────────
+
 
 // Include notification helpers if file exists
 if (file_exists('notification_helpers.php')) {
@@ -641,6 +649,7 @@ $avgResolution = $avgResolutionQ ? round($avgResolutionQ->fetch_assoc()['avg_day
             <div class="chart-container"><canvas id="statusPieChart"></canvas></div>
             <div class="mt-3">
               <?php
+session_start();
                 $total_complaints = array_sum($statusCounts);
                 $colors = ['#28a745','#0ea5a0','#ffc107','#ff6b6b'];
                 for ($i = 0; $i < count($statusLabels); $i++):
@@ -707,6 +716,7 @@ $avgResolution = $avgResolutionQ ? round($avgResolutionQ->fetch_assoc()['avg_day
 
                         <td class="status-cell">
                           <?php
+session_start();
                             $st = $c['status'] ?? '';
                             if ($st === 'Resolved') {
                               echo "<span class='badge bg-success badge-custom'><i class='fa fa-check-circle me-1'></i>Resolved</span>";
@@ -788,6 +798,7 @@ $avgResolution = $avgResolutionQ ? round($avgResolutionQ->fetch_assoc()['avg_day
                   <div class="lost-item-desc"><?= htmlspecialchars(mb_strimwidth($l['issue_description'], 0, 80, '…')) ?></div>
                   <div class="d-flex justify-content-between align-items-center">
                     <?php
+session_start();
                       $st2 = strtolower($l['status']);
                       $bc  = $st2 === 'resolved' ? 'bg-success' : ($st2 === 'in progress' ? 'bg-info' : 'bg-warning');
                     ?>
@@ -860,6 +871,7 @@ $avgResolution = $avgResolutionQ ? round($avgResolutionQ->fetch_assoc()['avg_day
                   </div>
                   <small class="text-muted d-block">Resolved This Month</small>
                   <?php
+session_start();
                     $resolvedThisMonth = $conn->query("
                       SELECT COUNT(*) AS c FROM complaints
                       WHERE status='Resolved'

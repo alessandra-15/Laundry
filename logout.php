@@ -33,6 +33,9 @@ if ($activityId) {
     }
 }
 
+// Determine where to redirect before clearing session
+$isAdmin = !empty($_SESSION['is_admin']);
+
 // Clear session
 $_SESSION = array();
 if (ini_get("session.use_cookies")) {
@@ -44,6 +47,7 @@ if (ini_get("session.use_cookies")) {
 }
 session_destroy();
 
-// Redirect to login page
-header('Location: login.php');
+// Redirect admins to admin login, customers to customer login
+header('Location: ' . ($isAdmin ? 'admin_login.php' : 'login.php'));
 exit();
+

@@ -574,7 +574,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <div class="login-container">
         <div class="login-left">
             <div class="login-left-content">
-                <div class="brand-logo">
+                <div class="brand-logo" id="brandLogo" title="MangTV Laundry Shop" style="cursor:default;user-select:none;">
                     <i class="fas fa-tshirt"></i>MangTV Laundry Shop
                 </div>
                 <h2>Welcome Back!</h2>
@@ -764,6 +764,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             loginBtn.disabled = true;
             loginBtn.classList.add('loading');
         });
+
+        // ── Secret admin access: click the brand logo 5 times quickly ──
+        (function () {
+            var clicks = 0;
+            var timer  = null;
+            document.getElementById('brandLogo').addEventListener('click', function () {
+                clicks++;
+                clearTimeout(timer);
+                if (clicks >= 5) {
+                    clicks = 0;
+                    window.location.href = 'admin_login.php';
+                    return;
+                }
+                // Reset counter if no new click within 1.5 seconds
+                timer = setTimeout(function () { clicks = 0; }, 1500);
+            });
+        })();
     </script>
 </body>
 </html>

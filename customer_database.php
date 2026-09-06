@@ -3,6 +3,12 @@
 session_start();
 include 'db_connect.php';
 
+// Admin session guard
+if (empty($_SESSION['admin_id']) || empty($_SESSION['is_admin'])) {
+    header('Location: admin_login.php');
+    exit();
+}
+
 // Include notification helpers if file exists
 if (file_exists('notification_helpers.php')) {
     include 'notification_helpers.php';
@@ -23,13 +29,32 @@ if (isset($_GET['search']) && !empty($_GET['search'])) {
                     OR Customer_ID LIKE '%$searchQuery%'";
 }
 
+// Count total customers matching search
+$countResult = $conn->query("SELECT COUNT(*) AS total FROM customer_info $whereClause");
+$totalFilteredCustomers = $countResult ? (int)$countResult->fetch_assoc()['total'] : 0;
+
+// Pagination settings (30 per page)
+$perPage = 30;
+$totalPages = $totalFilteredCustomers > 0 ? (int)ceil($totalFilteredCustomers / $perPage) : 1;
+$page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
+if ($page < 1) $page = 1;
+if ($page > $totalPages) $page = $totalPages;
+$offset = ($page - 1) * $perPage;
+
 // Fetch customers
 $result = $conn->query("
     SELECT Customer_ID, first_name, last_name, email, contact_number, address, register_date
     FROM customer_info
     $whereClause
     ORDER BY register_date DESC
+    LIMIT $offset, $perPage
 ");
+
+function getCustomerPaginationUrl($pageNum) {
+    $params = $_GET;
+    $params['page'] = $pageNum;
+    return '?' . http_build_query($params);
+}
 
 // Get statistics
 $totalCustomers = (int) ($conn->query("SELECT COUNT(*) AS c FROM customer_info")->fetch_assoc()['c'] ?? 0);
@@ -831,6 +856,88 @@ $activeCustomers = (int) ($conn->query("SELECT COUNT(DISTINCT customer_id) AS c 
         max-width: 100%;
       }
     }
+
+    /* Pagination Styles */
+    .pagination-container {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 1rem;
+      padding: 1.25rem 1.5rem;
+      border-top: 1px solid rgba(168,232,249,0.3);
+      background: #ffffff;
+      border-radius: 16px;
+      margin-top: 1.5rem;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+    }
+    
+    .pagination-info {
+      font-size: 0.88rem;
+      color: #6c757d;
+      font-weight: 500;
+    }
+    
+    .pagination-info strong {
+      color: var(--dark-blue);
+      font-weight: 700;
+    }
+    
+    .pagination-custom {
+      display: flex;
+      list-style: none;
+      gap: 0.35rem;
+      margin: 0;
+      padding: 0;
+      align-items: center;
+    }
+    
+    .pagination-custom .page-item .page-link {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 36px;
+      height: 36px;
+      padding: 0 0.65rem;
+      border-radius: 8px;
+      border: 1px solid rgba(168,232,249,0.6);
+      color: var(--dark-blue);
+      background: #ffffff;
+      font-weight: 600;
+      font-size: 0.85rem;
+      text-decoration: none;
+      transition: all 0.2s ease;
+    }
+    
+    .pagination-custom .page-item .page-link:hover:not(.disabled) {
+      background: var(--light-blue);
+      border-color: var(--light-blue);
+      color: var(--dark-blue);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 10px rgba(0,83,122,0.15);
+    }
+    
+    .pagination-custom .page-item.active .page-link {
+      background: var(--dark-blue);
+      border-color: var(--dark-blue);
+      color: #ffffff;
+      box-shadow: 0 4px 12px rgba(0,83,122,0.25);
+    }
+    
+    .pagination-custom .page-item.disabled .page-link {
+      color: #adb5bd;
+      pointer-events: none;
+      background: #f8f9fa;
+      border-color: #e9ecef;
+      opacity: 0.6;
+    }
+    
+    .pagination-custom .page-item.ellipsis .page-link {
+      border: none;
+      background: transparent;
+      cursor: default;
+      color: #6c757d;
+    }
   </style>
 </head>
 <body>
@@ -1169,6 +1276,70 @@ $activeCustomers = (int) ($conn->query("SELECT COUNT(DISTINCT customer_id) AS c 
               </div>
             </div>
           <?php endwhile; ?>
+        </div>
+
+        <!-- Pagination -->
+        <div class="pagination-container">
+          <div class="pagination-info">
+            Showing <strong><?= $totalFilteredCustomers > 0 ? ($offset + 1) : 0 ?></strong> to 
+            <strong><?= min($offset + $perPage, $totalFilteredCustomers) ?></strong> of 
+            <strong><?= number_format($totalFilteredCustomers) ?></strong> customers
+            <?php if ($totalPages > 1): ?>
+              (Page <strong><?= $page ?></strong> of <strong><?= $totalPages ?></strong>)
+            <?php endif; ?>
+          </div>
+          <?php if ($totalPages > 1): ?>
+          <nav aria-label="Customer database pagination">
+            <ul class="pagination-custom">
+              <li class="page-item <?= ($page <= 1) ? 'disabled' : '' ?>">
+                <a class="page-link" href="<?= getCustomerPaginationUrl(1) ?>" title="First Page">
+                  <i class="fa fa-angles-left"></i>
+                </a>
+              </li>
+              <li class="page-item <?= ($page <= 1) ? 'disabled' : '' ?>">
+                <a class="page-link" href="<?= getCustomerPaginationUrl($page - 1) ?>" title="Previous Page">
+                  <i class="fa fa-angle-left"></i>
+                </a>
+              </li>
+
+              <?php
+                $window = 2;
+                $startP = max(1, $page - $window);
+                $endP = min($totalPages, $page + $window);
+
+                if ($startP > 1) {
+                    echo '<li class="page-item"><a class="page-link" href="' . getCustomerPaginationUrl(1) . '">1</a></li>';
+                    if ($startP > 2) {
+                        echo '<li class="page-item ellipsis"><span class="page-link">…</span></li>';
+                    }
+                }
+
+                for ($p = $startP; $p <= $endP; $p++) {
+                    $activeClass = ($p === $page) ? 'active' : '';
+                    echo '<li class="page-item ' . $activeClass . '"><a class="page-link" href="' . getCustomerPaginationUrl($p) . '">' . $p . '</a></li>';
+                }
+
+                if ($endP < $totalPages) {
+                    if ($endP < $totalPages - 1) {
+                        echo '<li class="page-item ellipsis"><span class="page-link">…</span></li>';
+                    }
+                    echo '<li class="page-item"><a class="page-link" href="' . getCustomerPaginationUrl($totalPages) . '">' . $totalPages . '</a></li>';
+                }
+              ?>
+
+              <li class="page-item <?= ($page >= $totalPages) ? 'disabled' : '' ?>">
+                <a class="page-link" href="<?= getCustomerPaginationUrl($page + 1) ?>" title="Next Page">
+                  <i class="fa fa-angle-right"></i>
+                </a>
+              </li>
+              <li class="page-item <?= ($page >= $totalPages) ? 'disabled' : '' ?>">
+                <a class="page-link" href="<?= getCustomerPaginationUrl($totalPages) ?>" title="Last Page">
+                  <i class="fa fa-angles-right"></i>
+                </a>
+              </li>
+            </ul>
+          </nav>
+          <?php endif; ?>
         </div>
       <?php else: ?>
         <div class="card-custom">

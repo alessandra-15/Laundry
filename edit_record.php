@@ -1,7 +1,19 @@
 <?php
 // edit_record.php — modal form fragment for edit (GET) and update handler (POST)
+session_start();
 include 'db_connect.php';
 include_once 'user_notif_helpers.php';
+
+// Admin session guard
+if (empty($_SESSION['admin_id']) || empty($_SESSION['is_admin'])) {
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        http_response_code(401);
+        echo json_encode(['success' => false, 'message' => 'Unauthorized']);
+    } else {
+        echo '<div class="alert alert-danger">Unauthorized.</div>';
+    }
+    exit;
+}
 
 $transactionId = isset($_REQUEST['id']) ? intval($_REQUEST['id']) : 0;
 if ($transactionId <= 0) {

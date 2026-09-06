@@ -7,9 +7,9 @@ if (!defined('SOCKET_SERVER_NOTIFY_URL')) {
     define('SOCKET_SERVER_NOTIFY_URL', 'http://localhost:3000/notify');
 }
 
-// Toggle emitting to socket server (set to false if you don't have the socket server running)
+// Toggle emitting to socket server (set to true only if you have the socket server running)
 if (!defined('EMIT_NOTIFICATIONS')) {
-    define('EMIT_NOTIFICATIONS', true);
+    define('EMIT_NOTIFICATIONS', false);
 }
 
 /**

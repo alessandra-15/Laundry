@@ -3,6 +3,13 @@
 session_start();
 include 'db_connect.php';
 
+// ── Admin session guard ──────────────────────────────────────────────────────
+if (empty($_SESSION['admin_id']) || empty($_SESSION['is_admin'])) {
+    header('Location: admin_login.php');
+    exit();
+}
+// ────────────────────────────────────────────────────────────────────────────
+
 // If the login process sets a session flag like $_SESSION['login_success']=true,
 // we will show a welcome modal once and then unset the flag.
 $showWelcomeModal = false;

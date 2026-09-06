@@ -1,5 +1,13 @@
 <?php
+session_start();
 include 'db_connect.php';
+// ── Admin session guard ──────────────────────────────────────────────────────
+if (empty($_SESSION['admin_id']) || empty($_SESSION['is_admin'])) {
+    header('Location: admin_login.php');
+    exit();
+}
+// ────────────────────────────────────────────────────────────────────────────
+
 
 // --- Handle Add Product ---
 $add_msg = '';
@@ -136,6 +144,7 @@ main.expanded { margin-left:90px; }
           </thead>
           <tbody>
             <?php
+session_start();
             if($productsQ && $productsQ->num_rows>0){
               while($row=$productsQ->fetch_assoc()){
                 echo "<tr>

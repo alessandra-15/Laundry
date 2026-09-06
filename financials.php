@@ -1,12 +1,12 @@
 <?php
 // financials.php — MangTV Financial Dashboard (Dynamic Charts)
-$host = "localhost";
-$user = "root";
-$pass = "";
-$dbname = "laundry_db";
-$conn = new mysqli($host, $user, $pass, $dbname);
-if ($conn->connect_error) {
-  die("Connection failed: " . $conn->connect_error);
+session_start();
+include 'db_connect.php';
+
+// Admin session guard
+if (empty($_SESSION['admin_id']) || empty($_SESSION['is_admin'])) {
+    header('Location: admin_login.php');
+    exit();
 }
 
 // Include notification helpers if file exists

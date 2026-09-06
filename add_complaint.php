@@ -1,6 +1,14 @@
 <?php
+session_start();
 // add_complaint.php — Add Complaint (MangTV palette)
 include 'db_connect.php';
+// ── Admin session guard ──────────────────────────────────────────────────────
+if (empty($_SESSION['admin_id']) || empty($_SESSION['is_admin'])) {
+    header('Location: admin_login.php');
+    exit();
+}
+// ────────────────────────────────────────────────────────────────────────────
+
 
 $message = '';
 

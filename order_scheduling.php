@@ -2,6 +2,13 @@
 // order_scheduling.php — MangTV Order & Scheduling (matching dashboard design)
 session_start();
 include 'db_connect.php';
+// ── Admin session guard ──────────────────────────────────────────────────────
+if (empty($_SESSION['admin_id']) || empty($_SESSION['is_admin'])) {
+    header('Location: admin_login.php');
+    exit();
+}
+// ────────────────────────────────────────────────────────────────────────────
+
 
 // Include notification helpers if file exists
 if (file_exists('notification_helpers.php')) {
@@ -110,6 +117,11 @@ if (isset($_SESSION['success_message'])) {
 // --- Filters ---
 $filterStatus = $_GET['status'] ?? '';
 
+// --- Pagination Setup ---
+$itemsPerPage = 21;
+$page = isset($_GET['page']) && is_numeric($_GET['page']) ? (int)$_GET['page'] : 1;
+$offset = ($page - 1) * $itemsPerPage;
+
 // --- Fetch Schedules ---
 $schedules = [];
 $whereConditions = [];
@@ -122,17 +134,39 @@ if (!empty($filterStatus)) {
 }
 $whereClause = !empty($whereConditions) ? ('WHERE ' . implode(' AND ', $whereConditions)) : '';
 
+// Get Total Records for Pagination calculation
+$countQuery = "SELECT COUNT(*) as total FROM schedule s JOIN customer_info c ON s.Customer_ID=c.Customer_ID $whereClause";
+$countResult = $conn->query($countQuery);
+$totalRecords = $countResult->fetch_assoc()['total'];
+$totalPages = ceil($totalRecords / $itemsPerPage);
+
+// Fetch Paginated Data
 $query = "SELECT s.*, CONCAT(c.first_name,' ',c.last_name) AS customer_name, c.contact_number, c.email
           FROM schedule s
           JOIN customer_info c ON s.Customer_ID=c.Customer_ID
           $whereClause
-          ORDER BY s.date DESC, s.time DESC";
+          ORDER BY s.date DESC, s.time DESC
+          LIMIT $offset, $itemsPerPage";
 $result = $conn->query($query);
 if ($result) {
     while ($row = $result->fetch_assoc()) {
         $schedules[] = $row;
     }
 }
+
+// Get global statistics directly from the database
+$statsQuery = "SELECT
+    COUNT(*) as totalSchedules,
+    SUM(CASE WHEN admin_confirmation = 'Approved' THEN 1 ELSE 0 END) as approvedCount,
+    SUM(CASE WHEN admin_confirmation = 'Pending' OR admin_confirmation IS NULL THEN 1 ELSE 0 END) as pendingCount,
+    SUM(CASE WHEN admin_confirmation = 'Rejected' THEN 1 ELSE 0 END) as rejectedCount
+FROM schedule s";
+$statsResult = $conn->query($statsQuery);
+$statsRow = $statsResult->fetch_assoc();
+$totalSchedules = $statsRow['totalSchedules'] ?? 0;
+$approvedCount  = $statsRow['approvedCount'] ?? 0;
+$pendingCount   = $statsRow['pendingCount'] ?? 0;
+$rejectedCount  = $statsRow['rejectedCount'] ?? 0;
 
 // Get statistics
 $totalSchedules = count($schedules);
@@ -152,6 +186,60 @@ $rejectedCount  = count(array_filter($schedules, fn($s) => $s['admin_confirmatio
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 
   <style>
+
+    .custom-pagination {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  align-items: center;
+  list-style: none;
+  padding: 0;
+  margin-top: 2rem;
+}
+.custom-pagination .page-item .page-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 8px;
+  border: 1px solid var(--light-blue);
+  background: white;
+  color: var(--dark-blue);
+  font-weight: 700;
+  font-size: 0.95rem;
+  text-decoration: none;
+  transition: all 0.3s ease;
+}
+.custom-pagination .page-item.active .page-link {
+  background: var(--dark-blue);
+  border-color: var(--dark-blue);
+  color: var(--yellow);
+  box-shadow: 0 4px 12px rgba(0, 83, 122, 0.3);
+}
+.custom-pagination .page-item.disabled .page-link {
+  border-color: #f1f3f5;
+  color: #ced4da;
+  pointer-events: none;
+  background: #f8f9fa;
+  box-shadow: none;
+}
+.custom-pagination .page-item .page-ellipsis {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  width: 20px;
+  height: 38px;
+  color: var(--dark-blue);
+  font-weight: 700;
+  padding-bottom: 5px;
+}
+.custom-pagination .page-item .page-link:hover:not(.disabled) {
+  background: var(--light-blue);
+  color: var(--dark-blue);
+  transform: translateY(-2px);
+}
+
     :root {
       --dark-blue: #00537A;
       --yellow: #FFD35B;
@@ -803,6 +891,54 @@ $rejectedCount  = count(array_filter($schedules, fn($s) => $s['admin_confirmatio
 
       <?php endforeach; ?>
     </div><!-- /row -->
+
+    <!-- Pagination Controls -->
+    <?php if ($totalPages > 1): ?>
+    <nav aria-label="Schedule pagination">
+      <ul class="custom-pagination">
+        <!-- First Page -->
+        <li class="page-item <?= ($page <= 1) ? 'disabled' : '' ?>">
+          <a class="page-link" href="?status=<?= urlencode($filterStatus) ?>&page=1">&laquo;</a>
+        </li>
+        <!-- Previous Page -->
+        <li class="page-item <?= ($page <= 1) ? 'disabled' : '' ?>">
+          <a class="page-link" href="?status=<?= urlencode($filterStatus) ?>&page=<?= $page - 1 ?>">&lsaquo;</a>
+        </li>
+        
+        <?php
+        $start = max(1, $page - 1);
+        $end = min($totalPages, $page + 1);
+        
+        // Adjust display window if at the very beginning or end
+        if ($page == 1) { $end = min(3, $totalPages); }
+        if ($page == $totalPages) { $start = max(1, $totalPages - 2); }
+
+        for ($i = 1; $i <= $totalPages; $i++):
+            if ($i == 1 || $i == $totalPages || ($i >= $start && $i <= $end)):
+        ?>
+        <li class="page-item <?= ($page == $i) ? 'active' : '' ?>">
+          <a class="page-link" href="?status=<?= urlencode($filterStatus) ?>&page=<?= $i ?>"><?= $i ?></a>
+        </li>
+        <?php elseif ($i == $start - 1 || $i == $end + 1): ?>
+        <li class="page-item">
+          <span class="page-ellipsis">...</span>
+        </li>
+        <?php 
+            endif;
+        endfor; 
+        ?>
+        
+        <!-- Next Page -->
+        <li class="page-item <?= ($page >= $totalPages) ? 'disabled' : '' ?>">
+          <a class="page-link" href="?status=<?= urlencode($filterStatus) ?>&page=<?= $page + 1 ?>">&rsaquo;</a>
+        </li>
+        <!-- Last Page -->
+        <li class="page-item <?= ($page >= $totalPages) ? 'disabled' : '' ?>">
+          <a class="page-link" href="?status=<?= urlencode($filterStatus) ?>&page=<?= $totalPages ?>">&raquo;</a>
+        </li>
+      </ul>
+    </nav>
+    <?php endif; ?>
 
     <?php else: ?>
     <div class="card" style="background:white;border-radius:16px;box-shadow:0 2px 12px rgba(0,0,0,0.06);border:1px solid rgba(168,232,249,0.2);">

@@ -1,6 +1,13 @@
 <?php
+session_start();
 include 'db_connect.php';
 include_once 'user_notif_helpers.php';
+
+// Admin session guard
+if (empty($_SESSION['admin_id']) || empty($_SESSION['is_admin'])) {
+    echo 'unauthorized';
+    exit;
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $feedback_id = intval($_POST['feedback_id']);

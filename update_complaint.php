@@ -4,7 +4,15 @@ error_reporting(E_ALL);
 ini_set('display_errors', 0);
 ini_set('log_errors', 1);
 
+session_start();
 header('Content-Type: application/json');
+
+// Admin session guard
+if (empty($_SESSION['admin_id']) || empty($_SESSION['is_admin'])) {
+    http_response_code(401);
+    echo json_encode(['success' => false, 'message' => 'Unauthorized']);
+    exit;
+}
 
 // Test if db_connect.php exists
 if (!file_exists('db_connect.php')) {

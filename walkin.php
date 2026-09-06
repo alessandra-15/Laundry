@@ -1,6 +1,13 @@
 <?php
 session_start();
 include 'db_connect.php';
+// ── Admin session guard ──────────────────────────────────────────────────────
+if (empty($_SESSION['admin_id']) || empty($_SESSION['is_admin'])) {
+    header('Location: admin_login.php');
+    exit();
+}
+// ────────────────────────────────────────────────────────────────────────────
+
 
 // Include notification helpers if file exists
 if (file_exists('notification_helpers.php')) {

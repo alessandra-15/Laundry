@@ -1,6 +1,13 @@
 <?php
+session_start();
 // digital_record.php — MangTV Digital Records with Advanced Filters
 include 'db_connect.php';
+
+// Admin session guard
+if (empty($_SESSION['admin_id']) || empty($_SESSION['is_admin'])) {
+    header('Location: admin_login.php');
+    exit();
+}
 
 // Include notification helpers if file exists
 if (file_exists('notification_helpers.php')) {
@@ -15,6 +22,7 @@ $filterDate = $_GET['filter_date'] ?? '';
 $filterMonth = $_GET['filter_month'] ?? '';
 $filterPaymentStatus = $_GET['filter_payment'] ?? '';
 $filterLaundryStatus = $_GET['filter_laundry'] ?? '';
+$search = trim($_GET['search'] ?? '');
 
 // Build WHERE clause based on filters
 $whereConditions = [];
@@ -33,6 +41,10 @@ if (!empty($filterLaundryStatus)) {
     } else {
         $whereConditions[] = "tr.laundry_status = '" . $conn->real_escape_string($filterLaundryStatus) . "'";
     }
+}
+if (!empty($search)) {
+    $sEsc = $conn->real_escape_string($search);
+    $whereConditions[] = "(t.Transaction_ID LIKE '%$sEsc%' OR CONCAT(c.first_name,' ',c.last_name) LIKE '%$sEsc%' OR s.service LIKE '%$sEsc%' OR s.pick_deliver LIKE '%$sEsc%' OR tr.laundry_status LIKE '%$sEsc%' OR t.payment_status LIKE '%$sEsc%')";
 }
 
 $whereClause = !empty($whereConditions) ? "WHERE " . implode(" AND ", $whereConditions) : "";
@@ -56,13 +68,33 @@ if ($result) {
     }
 }
 
-// Get statistics
+// Get statistics across all filtered records
 $totalRecords = count($records);
 $totalWeight = array_sum(array_column($records, 'laundry_weight'));
 $totalRevenue = array_sum(array_column($records, 'payment'));
 $pendingPayments = count(array_filter($records, function($r) { 
     return strtolower($r['payment_status']) !== 'paid'; 
 }));
+
+// Pagination: 30 items per page
+$itemsPerPage = 30;
+$totalRecordsCount = $totalRecords;
+$totalPages = $totalRecordsCount > 0 ? (int)ceil($totalRecordsCount / $itemsPerPage) : 1;
+$currentPage = isset($_GET['page']) ? (int)$_GET['page'] : 1;
+if ($currentPage < 1) {
+    $currentPage = 1;
+} elseif ($currentPage > $totalPages) {
+    $currentPage = $totalPages;
+}
+$offset = ($currentPage - 1) * $itemsPerPage;
+$paginatedRecords = array_slice($records, $offset, $itemsPerPage);
+
+// Helper function to build pagination URLs preserving active filters
+function getPaginationUrl($pageNumber) {
+    $params = $_GET;
+    $params['page'] = $pageNumber;
+    return '?' . http_build_query($params);
+}
 ?>
 <!doctype html>
 <html lang="en">
@@ -1035,6 +1067,86 @@ $pendingPayments = count(array_filter($records, function($r) {
       color: white;
     }
     
+    /* Pagination Styles */
+    .pagination-container {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 1rem;
+      padding: 1.25rem 1.5rem;
+      border-top: 1px solid rgba(168,232,249,0.3);
+      background: #ffffff;
+      border-radius: 0 0 16px 16px;
+    }
+    
+    .pagination-info {
+      font-size: 0.88rem;
+      color: #6c757d;
+      font-weight: 500;
+    }
+    
+    .pagination-info strong {
+      color: var(--dark-blue);
+      font-weight: 700;
+    }
+    
+    .pagination-custom {
+      display: flex;
+      list-style: none;
+      gap: 0.35rem;
+      margin: 0;
+      padding: 0;
+      align-items: center;
+    }
+    
+    .pagination-custom .page-item .page-link {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 36px;
+      height: 36px;
+      padding: 0 0.65rem;
+      border-radius: 8px;
+      border: 1px solid rgba(168,232,249,0.6);
+      color: var(--dark-blue);
+      background: #ffffff;
+      font-weight: 600;
+      font-size: 0.85rem;
+      text-decoration: none;
+      transition: all 0.2s ease;
+    }
+    
+    .pagination-custom .page-item .page-link:hover:not(.disabled) {
+      background: var(--light-blue);
+      border-color: var(--light-blue);
+      color: var(--dark-blue);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 10px rgba(0,83,122,0.15);
+    }
+    
+    .pagination-custom .page-item.active .page-link {
+      background: var(--dark-blue);
+      border-color: var(--dark-blue);
+      color: #ffffff;
+      box-shadow: 0 4px 12px rgba(0,83,122,0.25);
+    }
+    
+    .pagination-custom .page-item.disabled .page-link {
+      color: #adb5bd;
+      pointer-events: none;
+      background: #f8f9fa;
+      border-color: #e9ecef;
+      opacity: 0.6;
+    }
+    
+    .pagination-custom .page-item.ellipsis .page-link {
+      border: none;
+      background: transparent;
+      cursor: default;
+      color: #6c757d;
+    }
+    
     /* Footer */
     footer { 
       background: white;
@@ -1624,9 +1736,15 @@ $pendingPayments = count(array_filter($records, function($r) {
             </form>
             
             <!-- Active Filters Display -->
-            <?php if (!empty($filterDate) || !empty($filterMonth) || !empty($filterPaymentStatus) || !empty($filterLaundryStatus)): ?>
+            <?php if (!empty($filterDate) || !empty($filterMonth) || !empty($filterPaymentStatus) || !empty($filterLaundryStatus) || !empty($search)): ?>
             <div class="active-filters">
               <strong style="color: var(--dark-blue); margin-right: 0.5rem;">Active Filters:</strong>
+              <?php if (!empty($search)): ?>
+                <span class="filter-badge">
+                  <i class="fa fa-search"></i> Search: "<?= htmlspecialchars($search) ?>"
+                  <i class="fa fa-times-circle" onclick="removeFilter('search')"></i>
+                </span>
+              <?php endif; ?>
               <?php if (!empty($filterDate)): ?>
                 <span class="filter-badge">
                   <i class="fa fa-calendar-day"></i> Date: <?= date('M d, Y', strtotime($filterDate)) ?>
@@ -1656,20 +1774,36 @@ $pendingPayments = count(array_filter($records, function($r) {
           </div>
 
           <!-- Search Bar -->
-          <div class="mb-4">
-            <div class="search-bar">
-              <i class="fa fa-search"></i>
-              <input 
-                type="text" 
-                id="searchInput" 
-                class="form-control" 
-                placeholder="Search by Transaction ID, Customer, Service, Date, or Status..."
-              >
+          <form method="GET" action="" class="mb-4">
+            <?php if (!empty($filterDate)): ?><input type="hidden" name="filter_date" value="<?= htmlspecialchars($filterDate) ?>"><?php endif; ?>
+            <?php if (!empty($filterMonth)): ?><input type="hidden" name="filter_month" value="<?= htmlspecialchars($filterMonth) ?>"><?php endif; ?>
+            <?php if (!empty($filterPaymentStatus)): ?><input type="hidden" name="filter_payment" value="<?= htmlspecialchars($filterPaymentStatus) ?>"><?php endif; ?>
+            <?php if (!empty($filterLaundryStatus)): ?><input type="hidden" name="filter_laundry" value="<?= htmlspecialchars($filterLaundryStatus) ?>"><?php endif; ?>
+            <div class="d-flex gap-2">
+              <div class="search-bar flex-grow-1">
+                <i class="fa fa-search"></i>
+                <input 
+                  type="text" 
+                  name="search"
+                  id="searchInput" 
+                  class="form-control" 
+                  value="<?= htmlspecialchars($search) ?>"
+                  placeholder="Search by Transaction ID, Customer, Service, Date, or Status... (Press Enter to search all)"
+                >
+              </div>
+              <button type="submit" class="btn-filter" style="white-space: nowrap;">
+                <i class="fa fa-search"></i> Search
+              </button>
+              <?php if (!empty($search)): ?>
+                <button type="button" class="btn-clear" onclick="removeFilter('search')" title="Clear search">
+                  <i class="fa fa-times"></i>
+                </button>
+              <?php endif; ?>
             </div>
-          </div>
+          </form>
 
           <!-- Table -->
-          <?php if(!empty($records)): ?>
+          <?php if(!empty($paginatedRecords)): ?>
           <div class="table-responsive">
             <table class="table table-custom" id="recordsTable">
               <thead>
@@ -1689,7 +1823,7 @@ $pendingPayments = count(array_filter($records, function($r) {
                 </tr>
               </thead>
               <tbody>
-                <?php foreach($records as $r): ?>
+                <?php foreach($paginatedRecords as $r): ?>
                 <tr data-transaction-id="<?= htmlspecialchars($r['Transaction_ID']) ?>">
                   <td class="cell-transid"><strong>#<?= htmlspecialchars($r['Transaction_ID']) ?></strong></td>
                   <td class="cell-customer"><?= htmlspecialchars($r['customer_name']) ?></td>
@@ -1741,12 +1875,81 @@ $pendingPayments = count(array_filter($records, function($r) {
               </tbody>
             </table>
           </div>
+
+          <!-- Pagination -->
+          <div class="pagination-container">
+            <div class="pagination-info">
+              Showing <strong><?= $totalRecordsCount > 0 ? ($offset + 1) : 0 ?></strong> to 
+              <strong><?= min($offset + $itemsPerPage, $totalRecordsCount) ?></strong> of 
+              <strong><?= number_format($totalRecordsCount) ?></strong> records
+              <?php if ($totalPages > 1): ?>
+                (Page <strong><?= $currentPage ?></strong> of <strong><?= $totalPages ?></strong>)
+              <?php endif; ?>
+            </div>
+            <?php if ($totalPages > 1): ?>
+            <nav aria-label="Transaction records pagination">
+              <ul class="pagination-custom">
+                <!-- First Page -->
+                <li class="page-item <?= ($currentPage <= 1) ? 'disabled' : '' ?>">
+                  <a class="page-link" href="<?= getPaginationUrl(1) ?>" title="First Page">
+                    <i class="fa fa-angles-left"></i>
+                  </a>
+                </li>
+                <!-- Previous Page -->
+                <li class="page-item <?= ($currentPage <= 1) ? 'disabled' : '' ?>">
+                  <a class="page-link" href="<?= getPaginationUrl($currentPage - 1) ?>" title="Previous Page">
+                    <i class="fa fa-angle-left"></i>
+                  </a>
+                </li>
+
+                <!-- Page numbers window -->
+                <?php
+                  $window = 2;
+                  $startP = max(1, $currentPage - $window);
+                  $endP = min($totalPages, $currentPage + $window);
+
+                  if ($startP > 1) {
+                      echo '<li class="page-item"><a class="page-link" href="' . getPaginationUrl(1) . '">1</a></li>';
+                      if ($startP > 2) {
+                          echo '<li class="page-item ellipsis"><span class="page-link">…</span></li>';
+                      }
+                  }
+
+                  for ($p = $startP; $p <= $endP; $p++) {
+                      $activeClass = ($p === $currentPage) ? 'active' : '';
+                      echo '<li class="page-item ' . $activeClass . '"><a class="page-link" href="' . getPaginationUrl($p) . '">' . $p . '</a></li>';
+                  }
+
+                  if ($endP < $totalPages) {
+                      if ($endP < $totalPages - 1) {
+                          echo '<li class="page-item ellipsis"><span class="page-link">…</span></li>';
+                      }
+                      echo '<li class="page-item"><a class="page-link" href="' . getPaginationUrl($totalPages) . '">' . $totalPages . '</a></li>';
+                  }
+                ?>
+
+                <!-- Next Page -->
+                <li class="page-item <?= ($currentPage >= $totalPages) ? 'disabled' : '' ?>">
+                  <a class="page-link" href="<?= getPaginationUrl($currentPage + 1) ?>" title="Next Page">
+                    <i class="fa fa-angle-right"></i>
+                  </a>
+                </li>
+                <!-- Last Page -->
+                <li class="page-item <?= ($currentPage >= $totalPages) ? 'disabled' : '' ?>">
+                  <a class="page-link" href="<?= getPaginationUrl($totalPages) ?>" title="Last Page">
+                    <i class="fa fa-angles-right"></i>
+                  </a>
+                </li>
+              </ul>
+            </nav>
+            <?php endif; ?>
+          </div>
           <?php else: ?>
           <div class="text-center py-5">
             <i class="fa fa-database" style="font-size: 4rem; color: var(--light-blue); margin-bottom: 1rem;"></i>
             <h5 class="text-muted">No records found</h5>
             <p class="text-muted">
-              <?php if (!empty($filterDate) || !empty($filterMonth) || !empty($filterPaymentStatus) || !empty($filterLaundryStatus)): ?>
+              <?php if (!empty($filterDate) || !empty($filterMonth) || !empty($filterPaymentStatus) || !empty($filterLaundryStatus) || !empty($search)): ?>
                 Try adjusting your filters or search terms
               <?php else: ?>
                 Transaction records will appear here once created
@@ -2010,6 +2213,7 @@ $pendingPayments = count(array_filter($records, function($r) {
     function removeFilter(filterName) {
       const url = new URL(window.location.href);
       url.searchParams.delete(filterName);
+      url.searchParams.delete('page');
       window.location.href = url.toString();
     }
     // Auto-show filters if any are active
@@ -2018,11 +2222,12 @@ $pendingPayments = count(array_filter($records, function($r) {
       toggleFilters();
     });
     <?php endif; ?>
-    // Client-side search functionality
+    // Client-side instant filter on current page
     const searchInput = document.getElementById('searchInput');
     if (searchInput) {
-      searchInput.addEventListener('keyup', function() {
-        const filter = searchInput.value.toLowerCase();
+      searchInput.addEventListener('keyup', function(e) {
+        if (e.key === 'Enter') return; // Allow form submission for full DB search
+        const filter = searchInput.value.toLowerCase().trim();
         const table = document.getElementById('recordsTable');
         if (table) {
           const rows = table.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
@@ -2030,12 +2235,7 @@ $pendingPayments = count(array_filter($records, function($r) {
           for (let i = 0; i < rows.length; i++) {
             const row = rows[i];
             const text = row.textContent.toLowerCase();
-            
-            if (text.includes(filter)) {
-              row.style.display = '';
-            } else {
-              row.style.display = 'none';
-            }
+            row.style.display = text.includes(filter) ? '' : 'none';
           }
         }
       });

@@ -3,7 +3,20 @@
 // Deletes transaction + tracking + schedule. Accepts POST (recommended) or GET with confirm=1 for backward compatibility.
 // Returns JSON for AJAX (X-Requested-With) or redirects for normal POST.
 
+session_start();
 include 'db_connect.php';
+
+// Admin session guard
+if (empty($_SESSION['admin_id']) || empty($_SESSION['is_admin'])) {
+    if (!empty($_SERVER['HTTP_X_REQUESTED_WITH'])) {
+        http_response_code(401);
+        echo json_encode(['success' => false, 'message' => 'Unauthorized']);
+    } else {
+        header('Location: admin_login.php');
+    }
+    exit;
+}
+
 function h($v){ return htmlspecialchars($v ?? '', ENT_QUOTES); }
 
 $method = $_SERVER['REQUEST_METHOD'];
