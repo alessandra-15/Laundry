@@ -39,6 +39,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             if ($authenticated) {
                 $_SESSION['admin_id']       = $admin['Admin_ID'];
+                $_SESSION['Admin_ID']       = $admin['Admin_ID']; // keep both for compatibility
                 $_SESSION['username']       = $admin['username'];
                 $_SESSION['is_admin']       = true;
                 $_SESSION['login_success']  = true;
@@ -61,392 +62,589 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Login — MangTV Laundry Shop</title>
+    <title>Admin Login - MangTV Laundry Shop</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         :root {
             --dark-blue: #00537A;
-            --mid-blue:  #006b99;
-            --light-blue: #A8E8F9;
             --yellow: #FFD35B;
-            --admin-accent: #1a3a5c;
+            --light-blue: #A8E8F9;
         }
 
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
 
         body {
             font-family: 'Poppins', sans-serif;
+            background: linear-gradient(135deg, var(--light-blue) 0%, #e3f5fc 100%);
             min-height: 100vh;
             display: flex;
             align-items: center;
             justify-content: center;
             padding: 20px;
-            background: linear-gradient(135deg, #0a1628 0%, #1a3a5c 50%, #00537A 100%);
+        }
+
+        .login-wrapper {
+            background: white;
+            border-radius: 25px;
+            box-shadow: 0 20px 60px rgba(0, 83, 122, 0.15);
+            overflow: hidden;
+            max-width: 1000px;
+            width: 100%;
+            display: flex;
+            animation: slideIn 0.6s ease-out;
+        }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(30px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Left Side - Image */
+        .login-left {
+            flex: 1;
+            background: linear-gradient(135deg, rgba(0,83,122,0.95) 0%, rgba(0,107,153,0.9) 100%),
+                        url('https://images.unsplash.com/photo-1517677208171-0bc6725a3e60?w=800&h=1200&fit=crop') center/cover;
+            padding: 3rem;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: white;
             position: relative;
             overflow: hidden;
         }
 
-        /* Animated background orbs */
-        body::before, body::after {
+        .login-left::before {
             content: '';
-            position: fixed;
+            position: absolute;
+            top: -50%;
+            right: -20%;
+            width: 400px;
+            height: 400px;
+            background: radial-gradient(circle, rgba(168,232,249,0.2) 0%, transparent 70%);
             border-radius: 50%;
-            animation: float 8s ease-in-out infinite;
-        }
-        body::before {
-            width: 500px; height: 500px;
-            background: radial-gradient(circle, rgba(168,232,249,0.08) 0%, transparent 70%);
-            top: -150px; right: -100px;
-        }
-        body::after {
-            width: 400px; height: 400px;
-            background: radial-gradient(circle, rgba(255,211,91,0.06) 0%, transparent 70%);
-            bottom: -100px; left: -80px;
-            animation-delay: -4s;
+            animation: float 6s ease-in-out infinite;
         }
 
         @keyframes float {
             0%, 100% { transform: translateY(0) rotate(0deg); }
-            50%       { transform: translateY(-30px) rotate(5deg); }
+            50%       { transform: translateY(-20px) rotate(5deg); }
         }
 
-        .card-wrapper {
-            width: 100%;
-            max-width: 480px;
+        .login-left-content {
             position: relative;
-            z-index: 10;
-            animation: slideUp 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+            z-index: 2;
+            text-align: center;
         }
 
-        @keyframes slideUp {
-            from { opacity: 0; transform: translateY(40px); }
-            to   { opacity: 1; transform: translateY(0); }
-        }
-
-        /* Shield / badge header */
-        .admin-badge {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            margin-bottom: 2rem;
-        }
-
-        .shield-icon {
-            width: 80px; height: 80px;
-            background: linear-gradient(135deg, var(--yellow) 0%, #ffb700 100%);
-            border-radius: 50%;
+        .brand-logo-big {
+            width: 100px;
+            height: 100px;
+            background: var(--yellow);
+            border-radius: 25px;
             display: flex;
             align-items: center;
             justify-content: center;
-            box-shadow: 0 8px 32px rgba(255,211,91,0.4), 0 0 0 8px rgba(255,211,91,0.1);
+            margin: 0 auto 2rem;
+            box-shadow: 0 10px 30px rgba(255,213,91,0.4);
+            animation: bounceIn 1s ease-out;
+        }
+
+        @keyframes bounceIn {
+            0%   { opacity: 0; transform: scale(0.3); }
+            50%  { transform: scale(1.05); }
+            100% { opacity: 1; transform: scale(1); }
+        }
+
+        .brand-logo-big i {
+            font-size: 3rem;
+            color: var(--dark-blue);
+        }
+
+        .left-title h2 {
+            font-size: 2rem;
+            font-weight: 700;
             margin-bottom: 1rem;
-            animation: pulse 3s ease-in-out infinite;
+            color: var(--yellow);
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
         }
 
-        @keyframes pulse {
-            0%, 100% { box-shadow: 0 8px 32px rgba(255,211,91,0.4), 0 0 0 8px rgba(255,211,91,0.1); }
-            50%       { box-shadow: 0 8px 32px rgba(255,211,91,0.6), 0 0 0 16px rgba(255,211,91,0.05); }
+        .left-title p {
+            font-size: 1rem;
+            opacity: 0.95;
+            line-height: 1.7;
+            margin-bottom: 2rem;
         }
 
-        .shield-icon i { font-size: 2rem; color: #0a1628; }
-
-        .admin-badge h1 {
-            font-size: 1.6rem;
-            font-weight: 800;
-            color: #fff;
-            letter-spacing: 0.5px;
+        .feature-list {
+            list-style: none;
+            padding: 0;
+            text-align: left;
         }
 
-        .admin-badge p {
-            color: rgba(255,255,255,0.55);
+        .feature-list li {
+            padding: 0.75rem 0;
+            display: flex;
+            align-items: center;
+            font-size: 0.95rem;
+        }
+
+        .feature-list i {
+            color: var(--yellow);
+            margin-right: 1rem;
+            font-size: 1.1rem;
+            width: 24px;
+        }
+
+        /* Right Side - Form */
+        .login-right {
+            flex: 1;
+            padding: 3rem 2.5rem;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .login-header {
+            margin-bottom: 2rem;
+        }
+
+        .brand-logo-small {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .logo-icon-small {
+            width: 50px;
+            height: 50px;
+            background: linear-gradient(135deg, var(--yellow) 0%, #ffe082 100%);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 12px rgba(255,213,91,0.3);
+        }
+
+        .logo-icon-small i {
+            font-size: 1.5rem;
+            color: var(--dark-blue);
+        }
+
+        .brand-text h3 {
+            font-size: 1.5rem;
+            font-weight: bold;
+            margin: 0;
+            color: var(--dark-blue);
+        }
+
+        .brand-text p {
             font-size: 0.85rem;
-            margin-top: 2px;
+            color: #6c757d;
+            margin: 0;
         }
 
-        /* Card */
-        .login-card {
-            background: rgba(255,255,255,0.04);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            border: 1px solid rgba(255,255,255,0.1);
-            border-radius: 24px;
-            padding: 2.5rem;
-            box-shadow: 0 24px 64px rgba(0,0,0,0.4);
+        .admin-badge {
+            display: inline-block;
+            background: var(--dark-blue);
+            color: var(--yellow);
+            padding: 0.4rem 1rem;
+            border-radius: 20px;
+            font-size: 0.7rem;
+            font-weight: 700;
+            letter-spacing: 1px;
+            margin-bottom: 2rem;
+        }
+
+        .welcome-text h4 {
+            color: var(--dark-blue);
+            font-size: 1.8rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+
+        .welcome-text p {
+            color: #6c757d;
+            font-size: 0.95rem;
+            margin-bottom: 2rem;
+        }
+
+        .alert {
+            border-radius: 12px;
+            border: none;
+            padding: 1rem;
+            margin-bottom: 1.5rem;
+            animation: shake 0.5s;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+            20%, 40%, 60%, 80% { transform: translateX(5px); }
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
         }
 
         .form-label {
-            color: rgba(255,255,255,0.75);
-            font-size: 0.85rem;
+            color: var(--dark-blue);
             font-weight: 600;
             margin-bottom: 0.5rem;
-            letter-spacing: 0.3px;
+            font-size: 0.9rem;
+            display: block;
         }
 
-        .input-wrap { position: relative; }
+        .input-wrapper {
+            position: relative;
+        }
 
         .input-icon {
             position: absolute;
             left: 1rem;
             top: 50%;
             transform: translateY(-50%);
-            color: rgba(255,255,255,0.35);
-            font-size: 0.9rem;
-            z-index: 5;
-            transition: color 0.3s;
+            color: #6c757d;
+            font-size: 1.1rem;
         }
 
         .form-control {
-            background: rgba(255,255,255,0.07);
-            border: 1.5px solid rgba(255,255,255,0.12);
+            border: 2px solid #e9ecef;
             border-radius: 12px;
-            color: #fff;
-            padding: 0.8rem 1rem 0.8rem 2.75rem;
+            padding: 0.9rem 1rem 0.9rem 3rem;
             font-size: 0.95rem;
-            font-family: 'Poppins', sans-serif;
             transition: all 0.3s;
             width: 100%;
         }
 
-        .form-control::placeholder { color: rgba(255,255,255,0.25); }
-
         .form-control:focus {
+            border-color: var(--light-blue);
+            box-shadow: 0 0 0 0.2rem rgba(168, 232, 249, 0.25);
             outline: none;
-            background: rgba(255,255,255,0.1);
-            border-color: var(--yellow);
-            box-shadow: 0 0 0 3px rgba(255,211,91,0.15);
-            color: #fff;
         }
 
-        .form-control:focus + .input-icon,
-        .input-wrap:focus-within .input-icon {
-            color: var(--yellow);
+        .form-control.is-invalid {
+            border-color: #dc3545;
         }
 
-        .toggle-pw {
+        .password-toggle {
             position: absolute;
             right: 1rem;
             top: 50%;
             transform: translateY(-50%);
-            color: rgba(255,255,255,0.35);
             cursor: pointer;
-            z-index: 5;
+            color: #6c757d;
             transition: color 0.3s;
-            background: none;
-            border: none;
-            padding: 0;
+            z-index: 5;
         }
-        .toggle-pw:hover { color: var(--yellow); }
 
-        .form-group { margin-bottom: 1.25rem; }
+        .password-toggle:hover {
+            color: var(--dark-blue);
+        }
 
-        /* Error alert */
-        .alert-error {
-            background: rgba(220, 53, 69, 0.15);
-            border: 1px solid rgba(220, 53, 69, 0.35);
-            border-radius: 12px;
-            color: #ff8a93;
-            padding: 0.75rem 1rem;
-            font-size: 0.875rem;
+        .form-options {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            font-size: 0.85rem;
+        }
+
+        .remember-me {
             display: flex;
             align-items: center;
             gap: 0.5rem;
-            margin-bottom: 1.25rem;
-            animation: shake 0.4s ease;
         }
 
-        @keyframes shake {
-            0%, 100% { transform: translateX(0); }
-            20%       { transform: translateX(-6px); }
-            40%       { transform: translateX(6px); }
-            60%       { transform: translateX(-4px); }
-            80%       { transform: translateX(4px); }
+        .form-check-input:checked {
+            background-color: var(--dark-blue);
+            border-color: var(--dark-blue);
         }
 
-        /* Submit button */
-        .btn-admin-login {
-            width: 100%;
-            padding: 0.9rem;
-            background: linear-gradient(135deg, var(--yellow) 0%, #ffb700 100%);
+        .forgot-password {
+            color: var(--dark-blue);
+            text-decoration: none;
+            font-weight: 600;
+            transition: color 0.3s;
+        }
+
+        .forgot-password:hover {
+            color: #006b99;
+        }
+
+        .btn-login {
+            background: linear-gradient(135deg, var(--yellow) 0%, #ffe082 100%);
+            color: var(--dark-blue);
             border: none;
+            padding: 1rem;
             border-radius: 12px;
-            color: #0a1628;
-            font-weight: 800;
+            font-weight: 700;
             font-size: 1rem;
-            font-family: 'Poppins', sans-serif;
-            letter-spacing: 0.5px;
-            cursor: pointer;
+            width: 100%;
             transition: all 0.3s;
-            margin-top: 0.5rem;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 0.5rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            box-shadow: 0 4px 12px rgba(255,213,91,0.3);
         }
 
-        .btn-admin-login:hover:not(:disabled) {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 30px rgba(255,211,91,0.4);
-            background: linear-gradient(135deg, #ffe082 0%, var(--yellow) 100%);
+        .btn-login:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 20px rgba(255,213,91,0.4);
         }
 
-        .btn-admin-login:disabled {
-            opacity: 0.6;
+        .btn-login:active {
+            transform: translateY(-1px);
+        }
+
+        .btn-login:disabled {
+            opacity: 0.7;
             cursor: not-allowed;
+            transform: none;
         }
 
-        .btn-admin-login .spinner {
+        .btn-login .spinner {
             display: none;
-            width: 18px; height: 18px;
-            border: 2px solid rgba(10,22,40,0.3);
-            border-top-color: #0a1628;
+            width: 18px;
+            height: 18px;
+            border: 2px solid rgba(0,83,122,0.3);
+            border-top-color: var(--dark-blue);
             border-radius: 50%;
             animation: spin 0.7s linear infinite;
+            margin-right: 0.5rem;
+            vertical-align: middle;
         }
 
-        .btn-admin-login.loading .spinner { display: inline-block; }
-        .btn-admin-login.loading .btn-text { display: none; }
+        .btn-login.loading .spinner { display: inline-block; }
+        .btn-login.loading .btn-text { display: none; }
 
         @keyframes spin { to { transform: rotate(360deg); } }
 
-        .divider {
+        .back-link {
             text-align: center;
-            margin: 1.5rem 0 1rem;
-            position: relative;
-        }
-        .divider::before {
-            content: '';
-            position: absolute;
-            left: 0; top: 50%;
-            width: 100%; height: 1px;
-            background: rgba(255,255,255,0.08);
-        }
-        .divider span {
-            position: relative;
-            background: transparent;
-            padding: 0 0.75rem;
-            color: rgba(255,255,255,0.3);
-            font-size: 0.78rem;
+            margin-top: 2rem;
+            color: #6c757d;
+            font-size: 0.9rem;
         }
 
-        .back-link {
-            display: block;
-            text-align: center;
-            color: rgba(255,255,255,0.4);
-            font-size: 0.85rem;
+        .back-link a {
+            color: var(--dark-blue);
+            font-weight: 600;
             text-decoration: none;
             transition: color 0.3s;
         }
-        .back-link:hover { color: var(--light-blue); }
-        .back-link i { margin-right: 4px; }
 
-        /* Security notice */
-        .security-note {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            justify-content: center;
-            margin-top: 1.5rem;
-            color: rgba(255,255,255,0.25);
-            font-size: 0.75rem;
+        .back-link a:hover {
+            color: #006b99;
+        }
+
+        @media (max-width: 768px) {
+            .login-wrapper {
+                flex-direction: column;
+            }
+
+            .login-left {
+                padding: 2rem;
+                min-height: 300px;
+            }
+
+            .brand-logo-big {
+                width: 80px;
+                height: 80px;
+            }
+
+            .brand-logo-big i {
+                font-size: 2.5rem;
+            }
+
+            .left-title h2 {
+                font-size: 1.5rem;
+            }
+
+            .feature-list {
+                display: none;
+            }
+
+            .login-right {
+                padding: 2rem 1.5rem;
+            }
+
+            .form-options {
+                flex-direction: column;
+                gap: 1rem;
+                align-items: flex-start;
+            }
         }
     </style>
 </head>
 <body>
-
-<div class="card-wrapper">
-    <!-- Badge -->
-    <div class="admin-badge">
-        <div class="shield-icon">
-            <i class="fas fa-shield-halved"></i>
+    <div class="login-wrapper">
+        <!-- Left Side - Image & Branding -->
+        <div class="login-left">
+            <div class="login-left-content">
+                <div class="brand-logo-big">
+                    <i class="fas fa-tshirt"></i>
+                </div>
+                <div class="left-title">
+                    <h2>MangTV Laundry Shop</h2>
+                    <p>Manage your laundry business with ease. Access your dashboard to monitor schedules, transactions, and customer data.</p>
+                </div>
+                <ul class="feature-list">
+                    <li>
+                        <i class="fas fa-chart-line"></i>
+                        <span>Real-time business analytics</span>
+                    </li>
+                    <li>
+                        <i class="fas fa-calendar-check"></i>
+                        <span>Schedule management system</span>
+                    </li>
+                    <li>
+                        <i class="fas fa-users"></i>
+                        <span>Customer database access</span>
+                    </li>
+                    <li>
+                        <i class="fas fa-shield-alt"></i>
+                        <span>Secure admin portal</span>
+                    </li>
+                </ul>
+            </div>
         </div>
-        <h1>Admin Portal</h1>
-        <p>MangTV Laundry Shop — Restricted Access</p>
-    </div>
 
-    <!-- Card -->
-    <div class="login-card">
-
-        <?php if ($error_message): ?>
-        <div class="alert-error">
-            <i class="fas fa-circle-xmark"></i>
-            <?php echo htmlspecialchars($error_message); ?>
-        </div>
-        <?php endif; ?>
-
-        <form id="adminLoginForm" method="POST" action="admin_login.php" novalidate>
-
-            <div class="form-group">
-                <label class="form-label" for="usernameInput">Username</label>
-                <div class="input-wrap">
-                    <input
-                        type="text"
-                        class="form-control"
-                        id="usernameInput"
-                        name="username"
-                        placeholder="Enter admin username"
-                        autocomplete="username"
-                        value="<?php echo htmlspecialchars($_POST['username'] ?? ''); ?>"
-                        required
-                    >
-                    <i class="fas fa-user input-icon"></i>
+        <!-- Right Side - Login Form -->
+        <div class="login-right">
+            <div class="login-header">
+                <div class="brand-logo-small">
+                    <div class="logo-icon-small">
+                        <i class="fas fa-tshirt"></i>
+                    </div>
+                    <div class="brand-text">
+                        <h3>MangTV Laundry Shop</h3>
+                        <p>Admin Portal</p>
+                    </div>
+                </div>
+                <div class="admin-badge">
+                    <i class="fas fa-shield-alt me-1"></i> ADMIN ACCESS
                 </div>
             </div>
 
-            <div class="form-group">
-                <label class="form-label" for="passwordInput">Password</label>
-                <div class="input-wrap">
-                    <input
-                        type="password"
-                        class="form-control"
-                        id="passwordInput"
-                        name="password"
-                        placeholder="Enter admin password"
-                        autocomplete="current-password"
-                        required
-                    >
-                    <i class="fas fa-lock input-icon"></i>
-                    <button type="button" class="toggle-pw" onclick="togglePassword()" tabindex="-1">
-                        <i class="fas fa-eye" id="toggleIcon"></i>
-                    </button>
-                </div>
+            <div class="welcome-text">
+                <h4>Welcome Back!</h4>
+                <p>Sign in to access your admin dashboard</p>
             </div>
 
-            <button type="submit" class="btn-admin-login" id="loginBtn">
-                <span class="btn-text"><i class="fas fa-right-to-bracket"></i> Sign In</span>
-                <div class="spinner"></div>
-            </button>
-        </form>
+            <!-- Error Message -->
+            <?php if ($error_message): ?>
+            <div class="alert alert-danger" role="alert">
+                <i class="fas fa-exclamation-circle me-2"></i>
+                <strong>Login Failed!</strong> <?php echo htmlspecialchars($error_message); ?>
+            </div>
+            <?php endif; ?>
 
-        <div class="divider"><span>or</span></div>
-        <a href="login.php" class="back-link"><i class="fas fa-arrow-left"></i> Back to Customer Login</a>
+            <!-- Login Form -->
+            <form id="adminLoginForm" method="POST" action="admin_login.php">
+                <div class="form-group">
+                    <label class="form-label" for="usernameInput">Username</label>
+                    <div class="input-wrapper">
+                        <i class="fas fa-user input-icon"></i>
+                        <input
+                            type="text"
+                            class="form-control"
+                            id="usernameInput"
+                            name="username"
+                            placeholder="Enter your username"
+                            autocomplete="username"
+                            value="<?php echo htmlspecialchars($_POST['username'] ?? ''); ?>"
+                            required
+                        >
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="passwordInput">Password</label>
+                    <div class="input-wrapper">
+                        <i class="fas fa-lock input-icon"></i>
+                        <input
+                            type="password"
+                            class="form-control"
+                            id="passwordInput"
+                            name="password"
+                            placeholder="Enter your password"
+                            autocomplete="current-password"
+                            required
+                        >
+                        <i class="fas fa-eye password-toggle" id="togglePassword"></i>
+                    </div>
+                </div>
+
+                <div class="form-options">
+                    <div class="remember-me">
+                        <input class="form-check-input" type="checkbox" id="rememberMe" name="rememberMe">
+                        <label class="form-check-label" for="rememberMe">
+                            Remember me
+                        </label>
+                    </div>
+                    <a href="#" class="forgot-password">Forgot Password?</a>
+                </div>
+
+                <button type="submit" class="btn btn-login" id="loginBtn">
+                    <span class="spinner"></span>
+                    <span class="btn-text"><i class="fas fa-sign-in-alt me-2"></i>Login to Dashboard</span>
+                </button>
+            </form>
+
+            <div class="back-link">
+                <i class="fas fa-arrow-left me-1"></i>
+                <a href="login.php">Back to Customer Login</a>
+            </div>
+        </div>
     </div>
 
-    <div class="security-note">
-        <i class="fas fa-lock"></i>
-        Secure connection · Authorized personnel only
-    </div>
-</div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Password Toggle
+        const togglePassword = document.getElementById('togglePassword');
+        const password = document.getElementById('passwordInput');
 
-<script>
-    function togglePassword() {
-        const input = document.getElementById('passwordInput');
-        const icon  = document.getElementById('toggleIcon');
-        if (input.type === 'password') {
-            input.type = 'text';
-            icon.classList.replace('fa-eye', 'fa-eye-slash');
-        } else {
-            input.type = 'password';
-            icon.classList.replace('fa-eye-slash', 'fa-eye');
-        }
-    }
+        togglePassword.addEventListener('click', function() {
+            const type = password.getAttribute('type') === 'password' ? 'text' : 'password';
+            password.setAttribute('type', type);
+            this.classList.toggle('fa-eye');
+            this.classList.toggle('fa-eye-slash');
+        });
 
-    document.getElementById('adminLoginForm').addEventListener('submit', function () {
-        const btn = document.getElementById('loginBtn');
-        btn.disabled = true;
-        btn.classList.add('loading');
-    });
-</script>
+        // Form Submission with loading state
+        document.getElementById('adminLoginForm').addEventListener('submit', function() {
+            const btn = document.getElementById('loginBtn');
+            btn.disabled = true;
+            btn.classList.add('loading');
+        });
+
+        // Remember Me functionality
+        const rememberMe = document.getElementById('rememberMe');
+        const usernameInput = document.getElementById('usernameInput');
+
+        document.getElementById('adminLoginForm').addEventListener('submit', function() {
+            if (rememberMe.checked) {
+                localStorage.setItem('adminUsername', usernameInput.value);
+            } else {
+                localStorage.removeItem('adminUsername');
+            }
+        });
+
+        // Restore remembered username
+        document.addEventListener('DOMContentLoaded', () => {
+            const saved = localStorage.getItem('adminUsername');
+            if (saved) {
+                usernameInput.value = saved;
+                rememberMe.checked = true;
+            }
+        });
+    </script>
 </body>
 </html>
