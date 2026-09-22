@@ -1,7 +1,7 @@
 <?php
 /**
- * complaints.php
- * WashFlow — Admin Complaints Management
+ * system_logs.php
+ * WashFlow — Admin Activity Logs
  */
 
 define('APP_STARTED', true);
@@ -27,17 +27,23 @@ if (!function_exists('e')) {
     }
 }
 
-if (!function_exists('status_badge')) {
-    function status_badge($status) {
-        $s = strtolower(trim((string)$status));
-        switch ($s) {
-            case 'pending':     return ['label' => 'Pending',     'color' => '#946200', 'bg' => '#FEF9E7'];
-            case 'in progress': return ['label' => 'In Progress', 'color' => '#5B2E91', 'bg' => '#F4ECFB'];
-            case 'resolved':    return ['label' => 'Resolved',    'color' => '#1E7E45', 'bg' => '#EAF7F0'];
-            case 'closed':      return ['label' => 'Closed',      'color' => '#5A7184', 'bg' => '#F4F7F9'];
-            default:            return ['label' => $status ? ucfirst($status) : 'Pending', 'color' => '#5A7184', 'bg' => '#F4F7F9'];
-        }
-    }
+function action_icon($action) {
+    $a = strtolower((string)$action);
+    if (strpos($a, 'login') !== false)     return ['icon' => 'fa-sign-in-alt',      'color' => '#1E7E45', 'bg' => '#EAF7F0'];
+    if (strpos($a, 'logout') !== false)    return ['icon' => 'fa-sign-out-alt',     'color' => '#A8322D', 'bg' => '#FDEDEC'];
+    if (strpos($a, 'delete') !== false)    return ['icon' => 'fa-trash',            'color' => '#A8322D', 'bg' => '#FDEDEC'];
+    if (strpos($a, 'create') !== false || strpos($a, 'insert') !== false || strpos($a, 'add') !== false)
+        return ['icon' => 'fa-plus-circle',   'color' => '#1E7E45', 'bg' => '#EAF7F0'];
+    if (strpos($a, 'update') !== false || strpos($a, 'edit') !== false)
+        return ['icon' => 'fa-pen',           'color' => '#00537A', 'bg' => '#EBF5FB'];
+    if (strpos($a, 'booking') !== false)   return ['icon' => 'fa-clipboard-list','color' => '#5B2E91', 'bg' => '#F4ECFB'];
+    if (strpos($a, 'complaint') !== false) return ['icon' => 'fa-headset',        'color' => '#946200', 'bg' => '#FEF9E7'];
+    if (strpos($a, 'feedback') !== false)  return ['icon' => 'fa-star',           'color' => '#B88A00', 'bg' => '#FFF9DB'];
+    if (strpos($a, 'payment') !== false)   return ['icon' => 'fa-credit-card',    'color' => '#00537A', 'bg' => '#EBF5FB'];
+    if (strpos($a, 'inventory') !== false || strpos($a, 'stock') !== false)
+        return ['icon' => 'fa-boxes',         'color' => '#5B2E91', 'bg' => '#F4ECFB'];
+    if (strpos($a, 'staff') !== false)     return ['icon' => 'fa-user-tie',       'color' => '#00537A', 'bg' => '#EBF5FB'];
+    return ['icon' => 'fa-info-circle', 'color' => '#5A7184', 'bg' => '#F4F7F9'];
 }
 
 /* ══════════════════════════════════════════
@@ -48,125 +54,114 @@ $flash = null;
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     $action = $_POST['action'];
 
-    /* ---------- UPDATE STATUS ---------- */
-    if ($action === 'update_status') {
-        $id       = (int)($_POST['id'] ?? 0);
-        $status   = $_POST['status'] ?? '';
-        $remarks  = trim($_POST['remarks'] ?? '');
-
-        $allowed = ['Pending', 'In Progress', 'Resolved'];
+    /* ---------- CLEAR ALL LOGS ---------- */
+    if ($action === 'clear_all') {
         $ok = false;
-
         try {
-            if ($id > 0 && in_array($status, $allowed, true)) {
-                if ($status === 'Resolved') {
-                    $stmt = $conn->prepare("
-                        UPDATE complaints
-                        SET status = ?, remarks = ?, date_resolved = NOW(), handled_by = ?
-                        WHERE complaint_id = ?
-                    ");
-                    $stmt->bind_param('sssi', $status, $remarks, $admin_name, $id);
-                } else {
-                    $stmt = $conn->prepare("
-                        UPDATE complaints
-                        SET status = ?, remarks = ?, handled_by = ?
-                        WHERE complaint_id = ?
-                    ");
-                    $stmt->bind_param('sssi', $status, $remarks, $admin_name, $id);
-                }
-                $ok = $stmt->execute();
-                $stmt->close();
-            }
-
+            $ok = $conn->query("DELETE FROM system_logs");
             if ($ok && class_exists('Logger')) {
-                Logger::info('Complaint updated', [
-                    'id' => $id, 'status' => $status, 'admin' => $admin_id
-                ]);
+                Logger::info('All system logs cleared', ['admin' => $admin_id]);
             }
         } catch (Exception $ex) {
-            if (class_exists('Logger')) Logger::error('Complaint update failed', ['error' => $ex->getMessage()]);
-            $ok = false;
+            if (class_exists('Logger')) Logger::error('Clear logs failed', ['error' => $ex->getMessage()]);
         }
-
         $flash = [
             'type'    => $ok ? 'success' : 'error',
-            'message' => $ok ? "Complaint #$id updated to $status." : 'Failed to update complaint.'
+            'message' => $ok ? 'All activity logs cleared.' : 'Failed to clear logs.'
         ];
     }
 
-    /* ---------- DELETE ---------- */
+    /* ---------- DELETE SINGLE LOG ---------- */
     if ($action === 'delete') {
         $id = (int)($_POST['id'] ?? 0);
         $ok = false;
         try {
             if ($id > 0) {
-                $stmt = $conn->prepare("DELETE FROM complaints WHERE complaint_id = ?");
+                $stmt = $conn->prepare("DELETE FROM system_logs WHERE log_id = ?");
                 $stmt->bind_param('i', $id);
                 $ok = $stmt->execute();
                 $stmt->close();
             }
-            if ($ok && class_exists('Logger')) {
-                Logger::info('Complaint deleted', ['id' => $id, 'admin' => $admin_id]);
-            }
         } catch (Exception $ex) {
-            if (class_exists('Logger')) Logger::error('Complaint delete failed', ['error' => $ex->getMessage()]);
+            if (class_exists('Logger')) Logger::error('Delete log failed', ['error' => $ex->getMessage()]);
         }
-
         $flash = [
             'type'    => $ok ? 'success' : 'error',
-            'message' => $ok ? "Complaint #$id deleted." : 'Failed to delete complaint.'
+            'message' => $ok ? "Log #$id deleted." : 'Failed to delete log.'
+        ];
+    }
+
+    /* ---------- CLEAR OLDER THAN X DAYS ---------- */
+    if ($action === 'clear_older') {
+        $days = max(1, (int)($_POST['days'] ?? 30));
+        $ok = false;
+        try {
+            $stmt = $conn->prepare("DELETE FROM system_logs WHERE timestamp < (NOW() - INTERVAL ? DAY)");
+            $stmt->bind_param('i', $days);
+            $ok = $stmt->execute();
+            $stmt->close();
+            if ($ok && class_exists('Logger')) {
+                Logger::info("Logs older than $days days cleared", ['admin' => $admin_id]);
+            }
+        } catch (Exception $ex) {
+            if (class_exists('Logger')) Logger::error('Clear old logs failed', ['error' => $ex->getMessage()]);
+        }
+        $flash = [
+            'type'    => $ok ? 'success' : 'error',
+            'message' => $ok ? "Logs older than $days days cleared." : 'Failed to clear logs.'
         ];
     }
 
     /* ---------- CSV EXPORT ---------- */
     if ($action === 'export_csv') {
-        $status_f  = trim($_POST['status'] ?? '');
+        $search_f  = trim($_POST['q'] ?? '');
+        $action_f  = trim($_POST['action_f'] ?? '');
         $date_from = trim($_POST['date_from'] ?? '');
         $date_to   = trim($_POST['date_to'] ?? '');
 
         header('Content-Type: text/csv; charset=utf-8');
-        header('Content-Disposition: attachment; filename="complaints_' . date('Ymd_His') . '.csv"');
+        header('Content-Disposition: attachment; filename="activity_logs_' . date('Ymd_His') . '.csv"');
         $out = fopen('php://output', 'w');
         fputs($out, "\xEF\xBB\xBF");
 
-        fputcsv($out, ['ID', 'Customer', 'Issue', 'Status', 'Date Reported', 'Date Resolved', 'Remarks', 'Handled By']);
+        fputcsv($out, ['Log ID', 'Admin ID', 'Action', 'Description', 'Timestamp']);
 
         $where = ["1=1"];
         $params = [];
         $types = '';
 
-        if ($status_f !== '' && in_array($status_f, ['Pending','In Progress','Resolved'], true)) {
-            $where[] = "c.status = ?";
-            $params[] = $status_f;
+        if ($search_f !== '') {
+            $where[] = "(action LIKE ? OR description LIKE ?)";
+            $like = '%' . $search_f . '%';
+            $params[] = $like; $params[] = $like;
+            $types .= 'ss';
+        }
+        if ($action_f !== '') {
+            $where[] = "action = ?";
+            $params[] = $action_f;
             $types .= 's';
         }
-        if ($date_from !== '') { $where[] = "DATE(c.date_reported) >= ?"; $params[] = $date_from; $types .= 's'; }
-        if ($date_to !== '')   { $where[] = "DATE(c.date_reported) <= ?"; $params[] = $date_to; $types .= 's'; }
+        if ($date_from !== '') { $where[] = "DATE(timestamp) >= ?"; $params[] = $date_from; $types .= 's'; }
+        if ($date_to !== '')   { $where[] = "DATE(timestamp) <= ?"; $params[] = $date_to; $types .= 's'; }
 
         $where_sql = implode(' AND ', $where);
 
         $stmt = $conn->prepare("
-            SELECT c.complaint_id, c.issue_description, c.status,
-                   c.date_reported, c.date_resolved, c.remarks, c.handled_by,
-                   CONCAT(cu.first_name,' ',cu.last_name) AS customer_name
-            FROM complaints c
-            LEFT JOIN customer_info cu ON cu.Customer_ID = c.customer_id
+            SELECT log_id, admin_id, action, description, timestamp
+            FROM system_logs
             WHERE $where_sql
-            ORDER BY c.date_reported DESC
+            ORDER BY timestamp DESC
         ");
         if ($types !== '') $stmt->bind_param($types, ...$params);
         $stmt->execute();
         $res = $stmt->get_result();
         while ($r = $res->fetch_assoc()) {
             fputcsv($out, [
-                $r['complaint_id'],
-                $r['customer_name'] ?: '—',
-                $r['issue_description'],
-                $r['status'],
-                $r['date_reported'],
-                $r['date_resolved'] ?: '—',
-                $r['remarks'] ?: '',
-                $r['handled_by'] ?: ''
+                $r['log_id'],
+                $r['admin_id'],
+                $r['action'],
+                $r['description'],
+                $r['timestamp']
             ]);
         }
         $stmt->close();
@@ -179,38 +174,53 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
    FILTERS + PAGINATION
    ══════════════════════════════════════════ */
 $search     = trim($_GET['q'] ?? '');
-$status_f   = trim($_GET['status'] ?? '');
+$action_f   = trim($_GET['action_f'] ?? '');
 $date_from  = trim($_GET['date_from'] ?? '');
 $date_to    = trim($_GET['date_to'] ?? '');
 $page       = max(1, (int)($_GET['page'] ?? 1));
-$per_page   = 15;
+$per_page   = 25;
 $offset     = ($page - 1) * $per_page;
 
 /* ══════════════════════════════════════════
    STATS
    ══════════════════════════════════════════ */
-$stats = ['total' => 0, 'pending' => 0, 'in_progress' => 0, 'resolved' => 0];
+$stats = ['total' => 0, 'today' => 0, 'week' => 0, 'admins' => 0];
 
 try {
-    $q = $conn->query("SELECT COUNT(*) c FROM complaints");
+    $q = $conn->query("SELECT COUNT(*) c FROM system_logs");
     if ($q) $stats['total'] = (int)$q->fetch_assoc()['c'];
 
-    $q = $conn->query("SELECT COUNT(*) c FROM complaints WHERE status = 'Pending'");
-    if ($q) $stats['pending'] = (int)$q->fetch_assoc()['c'];
+    $q = $conn->query("SELECT COUNT(*) c FROM system_logs WHERE DATE(timestamp) = CURDATE()");
+    if ($q) $stats['today'] = (int)$q->fetch_assoc()['c'];
 
-    $q = $conn->query("SELECT COUNT(*) c FROM complaints WHERE status = 'In Progress'");
-    if ($q) $stats['in_progress'] = (int)$q->fetch_assoc()['c'];
+    $q = $conn->query("SELECT COUNT(*) c FROM system_logs WHERE timestamp >= (NOW() - INTERVAL 7 DAY)");
+    if ($q) $stats['week'] = (int)$q->fetch_assoc()['c'];
 
-    $q = $conn->query("SELECT COUNT(*) c FROM complaints WHERE status = 'Resolved'");
-    if ($q) $stats['resolved'] = (int)$q->fetch_assoc()['c'];
+    $q = $conn->query("SELECT COUNT(DISTINCT admin_id) c FROM system_logs");
+    if ($q) $stats['admins'] = (int)$q->fetch_assoc()['c'];
 } catch (Exception $ex) {
-    if (class_exists('Logger')) Logger::error('Complaints stats failed', ['error' => $ex->getMessage()]);
+    if (class_exists('Logger')) Logger::error('Logs stats failed', ['error' => $ex->getMessage()]);
 }
 
 /* ══════════════════════════════════════════
-   FETCH COMPLAINTS
+   DISTINCT ACTIONS (for filter dropdown)
    ══════════════════════════════════════════ */
-$complaints  = [];
+$distinct_actions = [];
+try {
+    $q = $conn->query("SELECT DISTINCT action FROM system_logs WHERE action <> '' ORDER BY action ASC");
+    if ($q) {
+        while ($row = $q->fetch_assoc()) {
+            $distinct_actions[] = $row['action'];
+        }
+    }
+} catch (Exception $ex) {
+    if (class_exists('Logger')) Logger::error('Distinct actions failed', ['error' => $ex->getMessage()]);
+}
+
+/* ══════════════════════════════════════════
+   FETCH LOGS
+   ══════════════════════════════════════════ */
+$logs        = [];
 $total_rows  = 0;
 $total_pages = 1;
 
@@ -220,25 +230,22 @@ try {
     $types  = '';
 
     if ($search !== '') {
-        $where[] = "(c.issue_description LIKE ? OR c.remarks LIKE ? OR c.handled_by LIKE ?
-                     OR cu.first_name LIKE ? OR cu.last_name LIKE ? OR c.complaint_id LIKE ?)";
+        $where[] = "(action LIKE ? OR description LIKE ? OR admin_id LIKE ?)";
         $like = '%' . $search . '%';
-        for ($i = 0; $i < 6; $i++) { $params[] = $like; $types .= 's'; }
+        $params[] = $like; $params[] = $like; $params[] = $like;
+        $types .= 'sss';
     }
-    if ($status_f !== '' && in_array($status_f, ['Pending','In Progress','Resolved'], true)) {
-        $where[] = "c.status = ?";
-        $params[] = $status_f;
+    if ($action_f !== '') {
+        $where[] = "action = ?";
+        $params[] = $action_f;
         $types .= 's';
     }
-    if ($date_from !== '') { $where[] = "DATE(c.date_reported) >= ?"; $params[] = $date_from; $types .= 's'; }
-    if ($date_to !== '')   { $where[] = "DATE(c.date_reported) <= ?"; $params[] = $date_to; $types .= 's'; }
+    if ($date_from !== '') { $where[] = "DATE(timestamp) >= ?"; $params[] = $date_from; $types .= 's'; }
+    if ($date_to !== '')   { $where[] = "DATE(timestamp) <= ?"; $params[] = $date_to; $types .= 's'; }
 
     $where_sql = implode(' AND ', $where);
 
-    $count_sql = "SELECT COUNT(*) c
-                  FROM complaints c
-                  LEFT JOIN customer_info cu ON cu.Customer_ID = c.customer_id
-                  WHERE $where_sql";
+    $count_sql = "SELECT COUNT(*) c FROM system_logs WHERE $where_sql";
     $stmt = $conn->prepare($count_sql);
     if ($types !== '') $stmt->bind_param($types, ...$params);
     $stmt->execute();
@@ -247,23 +254,20 @@ try {
 
     $total_pages = max(1, (int)ceil($total_rows / $per_page));
 
-    $list_sql = "SELECT c.complaint_id, c.customer_id, c.issue_description, c.status,
-                        c.date_reported, c.date_resolved, c.remarks, c.handled_by,
-                        cu.first_name, cu.last_name, cu.contact_number, cu.email
-                 FROM complaints c
-                 LEFT JOIN customer_info cu ON cu.Customer_ID = c.customer_id
+    $list_sql = "SELECT log_id, admin_id, action, description, timestamp
+                 FROM system_logs
                  WHERE $where_sql
-                 ORDER BY c.date_reported DESC
+                 ORDER BY timestamp DESC
                  LIMIT ? OFFSET ?";
     $stmt = $conn->prepare($list_sql);
     $bind_types  = $types . 'ii';
     $bind_params = array_merge($params, [$per_page, $offset]);
     $stmt->bind_param($bind_types, ...$bind_params);
     $stmt->execute();
-    $complaints = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+    $logs = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
     $stmt->close();
 } catch (Exception $ex) {
-    if (class_exists('Logger')) Logger::error('Fetch complaints failed', ['error' => $ex->getMessage()]);
+    if (class_exists('Logger')) Logger::error('Fetch logs failed', ['error' => $ex->getMessage()]);
 }
 
 /* ══════════════════════════════════════════
@@ -272,13 +276,13 @@ try {
 function build_url($overrides = []) {
     $base = [
         'q'         => $_GET['q']         ?? '',
-        'status'    => $_GET['status']    ?? '',
+        'action_f'  => $_GET['action_f']  ?? '',
         'date_from' => $_GET['date_from'] ?? '',
         'date_to'   => $_GET['date_to']   ?? '',
         'page'      => $_GET['page']      ?? 1,
     ];
     $merged = array_merge($base, $overrides);
-    return 'complaints.php?' . http_build_query(array_filter($merged, function($v) {
+    return 'system_logs.php?' . http_build_query(array_filter($merged, function($v) {
         return $v !== '' && $v !== null;
     }));
 }
@@ -288,7 +292,7 @@ function build_url($overrides = []) {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Complaints — WashFlow</title>
+<title>Activity Logs — WashFlow</title>
 
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
@@ -585,6 +589,7 @@ a { text-decoration: none; }
 .wf-stat-icon.icon-purple { background: #F4ECFB; color: #5B2E91; }
 .wf-stat-icon.icon-dark   { background: #E6EDF3; color: var(--dark-blue); }
 .wf-stat-icon.icon-red    { background: #FDEDEC; color: #A8322D; }
+.wf-stat-icon.icon-gold   { background: #FFF4CC; color: #8A6400; }
 
 .wf-stat-value {
     font-size: 1.6rem;
@@ -685,6 +690,46 @@ a { text-decoration: none; }
     margin-bottom: 1.25rem;
 }
 
+/* CARD HEADER */
+.wf-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1.4rem 1.6rem;
+    border-bottom: 1px solid var(--border-soft);
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+.wf-card-title { display: flex; align-items: center; gap: 0.95rem; }
+.wf-card-title-icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 11px;
+    background: var(--yellow-soft);
+    color: var(--yellow-dark);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+    flex-shrink: 0;
+}
+.wf-card-title-icon.icon-blue { background: var(--light-blue-soft); color: var(--primary); }
+.wf-card-title-icon.icon-warn { background: #FEF3E2; color: #C2410C; }
+.wf-card-title-icon.icon-good { background: #EAF7F0; color: #1E7E45; }
+.wf-card-title-icon.icon-red { background: #FDEDEC; color: #A8322D; }
+.wf-card-title h3 {
+    color: var(--dark-blue);
+    font-size: 1.02rem;
+    font-weight: 700;
+    margin: 0;
+}
+.wf-card-title p {
+    color: var(--text-muted);
+    font-size: 0.78rem;
+    margin: 0.15rem 0 0;
+    font-weight: 500;
+}
+
 /* TABLE */
 .wf-table-wrap { overflow-x: auto; }
 .wf-table {
@@ -713,42 +758,59 @@ a { text-decoration: none; }
 .wf-table tbody tr { transition: background 0.15s; }
 .wf-table tbody tr:hover { background: var(--light-blue-pale); }
 
-.wf-complaint-id {
+.wf-log-id {
     font-weight: 700;
     color: var(--primary);
     font-family: 'SF Mono', Monaco, monospace;
     font-size: 0.8rem;
 }
-.wf-customer { font-weight: 600; color: var(--dark-blue); }
-.wf-issue {
+.wf-action {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 600;
+    color: var(--dark-blue);
+    font-size: 0.85rem;
+}
+.wf-action-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    flex-shrink: 0;
+}
+.wf-description {
     color: var(--text-secondary);
     font-size: 0.84rem;
-    max-width: 320px;
+    max-width: 420px;
     overflow: hidden;
     text-overflow: ellipsis;
     display: -webkit-box;
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
-    line-height: 1.45;
+    line-height: 1.5;
 }
-.wf-date { color: var(--text-muted); font-size: 0.8rem; white-space: nowrap; }
-
-.wf-badge {
+.wf-admin-badge {
     display: inline-flex;
     align-items: center;
-    gap: 0.35rem;
-    padding: 0.35rem 0.7rem;
-    border-radius: 7px;
-    font-size: 0.72rem;
-    font-weight: 600;
-    letter-spacing: 0.01em;
-    white-space: nowrap;
+    gap: 0.4rem;
+    padding: 0.3rem 0.65rem;
+    background: var(--light-blue-pale);
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--primary);
 }
-.wf-badge-dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: currentColor;
+.wf-admin-badge i { font-size: 0.7rem; }
+.wf-date { color: var(--text-muted); font-size: 0.8rem; white-space: nowrap; }
+.wf-date .time {
+    display: block;
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    font-weight: 500;
 }
 
 .wf-row-actions {
@@ -983,36 +1045,6 @@ a { text-decoration: none; }
     flex-wrap: wrap;
 }
 
-/* FORM in panel */
-.wf-form-group { margin-bottom: 1rem; }
-.wf-form-group label {
-    display: block;
-    font-size: 0.72rem;
-    font-weight: 700;
-    color: var(--text-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    margin-bottom: 0.4rem;
-}
-.wf-textarea {
-    width: 100%;
-    padding: 0.7rem 0.9rem;
-    border: 1px solid var(--border);
-    border-radius: 9px;
-    font-size: 0.85rem;
-    font-family: inherit;
-    color: var(--text-primary);
-    background: white;
-    transition: all 0.2s;
-    outline: none;
-    resize: vertical;
-    min-height: 90px;
-}
-.wf-textarea:focus {
-    border-color: var(--primary);
-    box-shadow: 0 0 0 3px rgba(0, 90, 133, 0.1);
-}
-
 /* TOAST */
 .wf-toast-wrap {
     position: fixed;
@@ -1164,43 +1196,44 @@ a { text-decoration: none; }
         <nav class="wf-nav">
             <div class="wf-nav-section-label">Overview</div>
             <a href="dashboard.php" class="wf-nav-item">
-                <i class="fas fa-chart-pie"></i><span>Dashboard</span>
-            </a>
-
-            <div class="wf-nav-section-label">Monitoring</div>
-            <a href="admin_bookings.php" class="wf-nav-item">
-                <i class="fas fa-eye"></i><span>Bookings Monitor</span>
-            </a>
-            <a href="admin_payments.php" class="wf-nav-item">
-                <i class="fas fa-receipt"></i><span>Payments Monitor</span>
-            </a>
-            <a href="admin_tracking.php" class="wf-nav-item">
-                <i class="fas fa-route"></i><span>Tracking Monitor</span>
+                <i class="fas fa-chart-pie"></i>
+                <span>Dashboard</span>
             </a>
 
             <div class="wf-nav-section-label">Operations</div>
+            <a href="booking_management.php" class="wf-nav-item">
+                <i class="fas fa-clipboard-list"></i>
+                <span>Bookings</span>
+            </a>
             <a href="customer_management.php" class="wf-nav-item">
-                <i class="fas fa-users"></i><span>Customers</span>
+                <i class="fas fa-users"></i>
+                <span>Customers</span>
             </a>
             <a href="staff_management.php" class="wf-nav-item">
-                <i class="fas fa-user-tie"></i><span>Staff</span>
+                <i class="fas fa-user-tie"></i>
+                <span>Staff</span>
             </a>
             <a href="inventory.php" class="wf-nav-item">
-                <i class="fas fa-boxes"></i><span>Inventory</span>
+                <i class="fas fa-boxes"></i>
+                <span>Inventory</span>
             </a>
 
             <div class="wf-nav-section-label">Insights</div>
             <a href="reports.php" class="wf-nav-item">
-                <i class="fas fa-chart-line"></i><span>Reports</span>
+                <i class="fas fa-chart-line"></i>
+                <span>Reports</span>
             </a>
-            <a href="complaints.php" class="wf-nav-item active">
-                <i class="fas fa-headset"></i><span>Complaints</span>
+            <a href="complaints.php" class="wf-nav-item">
+                <i class="fas fa-headset"></i>
+                <span>Complaints</span>
             </a>
             <a href="feedback.php" class="wf-nav-item">
-                <i class="fas fa-star"></i><span>Feedback</span>
+                <i class="fas fa-star"></i>
+                <span>Feedback</span>
             </a>
-            <a href="system_logs.php" class="wf-nav-item">
-                <i class="fas fa-history"></i><span>Activity Logs</span>
+            <a href="system_logs.php" class="wf-nav-item active">
+                <i class="fas fa-history"></i>
+                <span>Activity Logs</span>
             </a>
         </nav>
 
@@ -1225,8 +1258,8 @@ a { text-decoration: none; }
         <!-- TOPBAR -->
         <div class="wf-topbar">
             <div class="wf-topbar-greeting">
-                <h1>Customer <span class="accent">Complaints</span></h1>
-                <p>Track and resolve customer issues</p>
+                <h1>Activity <span class="accent">Logs</span></h1>
+                <p>Track all system actions and admin activity</p>
             </div>
             <div class="wf-topbar-date">
                 <i class="fas fa-calendar-alt"></i>
@@ -1243,68 +1276,68 @@ a { text-decoration: none; }
         <div class="wf-stats-grid">
             <div class="wf-stat-card">
                 <div class="wf-stat-top">
-                    <div class="wf-stat-icon icon-blue"><i class="fas fa-headset"></i></div>
+                    <div class="wf-stat-icon icon-blue"><i class="fas fa-history"></i></div>
                 </div>
                 <div>
                     <div class="wf-stat-value"><?= number_format($stats['total']) ?></div>
-                    <div class="wf-stat-label">Total Complaints</div>
+                    <div class="wf-stat-label">Total Logs</div>
                 </div>
             </div>
 
             <div class="wf-stat-card">
                 <div class="wf-stat-top">
-                    <div class="wf-stat-icon icon-yellow"><i class="fas fa-hourglass-half"></i></div>
+                    <div class="wf-stat-icon icon-green"><i class="fas fa-calendar-day"></i></div>
                 </div>
                 <div>
-                    <div class="wf-stat-value"><?= number_format($stats['pending']) ?></div>
-                    <div class="wf-stat-label">Pending</div>
+                    <div class="wf-stat-value"><?= number_format($stats['today']) ?></div>
+                    <div class="wf-stat-label">Today's Activity</div>
                 </div>
             </div>
 
             <div class="wf-stat-card">
                 <div class="wf-stat-top">
-                    <div class="wf-stat-icon icon-purple"><i class="fas fa-spinner"></i></div>
+                    <div class="wf-stat-icon icon-purple"><i class="fas fa-calendar-week"></i></div>
                 </div>
                 <div>
-                    <div class="wf-stat-value"><?= number_format($stats['in_progress']) ?></div>
-                    <div class="wf-stat-label">In Progress</div>
+                    <div class="wf-stat-value"><?= number_format($stats['week']) ?></div>
+                    <div class="wf-stat-label">Last 7 Days</div>
                 </div>
             </div>
 
             <div class="wf-stat-card">
                 <div class="wf-stat-top">
-                    <div class="wf-stat-icon icon-green"><i class="fas fa-check-circle"></i></div>
+                    <div class="wf-stat-icon icon-yellow"><i class="fas fa-user-shield"></i></div>
                 </div>
                 <div>
-                    <div class="wf-stat-value"><?= number_format($stats['resolved']) ?></div>
-                    <div class="wf-stat-label">Resolved</div>
+                    <div class="wf-stat-value"><?= number_format($stats['admins']) ?></div>
+                    <div class="wf-stat-label">Unique Admins</div>
                 </div>
             </div>
         </div>
 
         <!-- FILTER BAR -->
-        <form method="get" action="complaints.php" class="wf-filter-bar">
-            <div class="wf-filter-group" style="flex: 1 1 240px;">
+        <form method="get" action="system_logs.php" class="wf-filter-bar">
+            <div class="wf-filter-group" style="flex: 1 1 220px;">
                 <label>Search</label>
-                <input type="text" name="q" class="wf-input" placeholder="Complaint ID, customer, issue..." value="<?= e($search) ?>">
+                <input type="text" name="q" class="wf-input" placeholder="Action, description, admin ID..." value="<?= e($search) ?>">
             </div>
 
-            <div class="wf-filter-group" style="flex: 0 0 170px;">
-                <label>Status</label>
-                <select name="status" class="wf-select">
-                    <option value="">All Status</option>
-                    <?php foreach (['Pending','In Progress','Resolved'] as $s): ?>
-                    <option value="<?= e($s) ?>" <?= $status_f === $s ? 'selected' : '' ?>><?= e($s) ?></option>
+            <div class="wf-filter-group" style="flex: 0 0 200px;">
+                <label>Action Type</label>
+                <select name="action_f" class="wf-select">
+                    <option value="">All Actions</option>
+                    <?php foreach ($distinct_actions as $a): ?>
+                    <option value="<?= e($a) ?>" <?= $action_f === $a ? 'selected' : '' ?>><?= e($a) ?></option>
                     <?php endforeach; ?>
                 </select>
             </div>
 
-            <div class="wf-filter-group" style="flex: 0 0 150px;">
+            <div class="wf-filter-group" style="flex: 0 0 145px;">
                 <label>From</label>
                 <input type="date" name="date_from" class="wf-input" value="<?= e($date_from) ?>">
             </div>
 
-            <div class="wf-filter-group" style="flex: 0 0 150px;">
+            <div class="wf-filter-group" style="flex: 0 0 145px;">
                 <label>To</label>
                 <input type="date" name="date_to" class="wf-input" value="<?= e($date_to) ?>">
             </div>
@@ -1313,12 +1346,12 @@ a { text-decoration: none; }
                 <button type="submit" class="wf-btn wf-btn-primary">
                     <i class="fas fa-search"></i> Filter
                 </button>
-                <a href="complaints.php" class="wf-btn wf-btn-outline">
+                <a href="system_logs.php" class="wf-btn wf-btn-outline">
                     <i class="fas fa-undo"></i> Reset
                 </a>
                 <button type="button" class="wf-btn wf-btn-yellow"
                         onclick="document.getElementById('exportForm').submit();">
-                    <i class="fas fa-download"></i> Export CSV
+                    <i class="fas fa-download"></i> Export
                 </button>
             </div>
         </form>
@@ -1326,17 +1359,40 @@ a { text-decoration: none; }
         <!-- Export form -->
         <form method="post" id="exportForm" style="display:none;">
             <input type="hidden" name="action" value="export_csv">
-            <input type="hidden" name="status" value="<?= e($status_f) ?>">
+            <input type="hidden" name="q" value="<?= e($search) ?>">
+            <input type="hidden" name="action_f" value="<?= e($action_f) ?>">
             <input type="hidden" name="date_from" value="<?= e($date_from) ?>">
             <input type="hidden" name="date_to" value="<?= e($date_to) ?>">
         </form>
 
-        <!-- TABLE -->
+        <!-- LOGS TABLE -->
         <div class="wf-card">
-            <?php if (empty($complaints)): ?>
+            <div class="wf-card-header">
+                <div class="wf-card-title">
+                    <div class="wf-card-title-icon icon-blue">
+                        <i class="fas fa-list-ul"></i>
+                    </div>
+                    <div>
+                        <h3>System Activity</h3>
+                        <p>Chronological list of all recorded actions</p>
+                    </div>
+                </div>
+                <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+                    <button type="button" class="wf-btn wf-btn-outline" style="border-color:#FBE9DC;color:#8B4A1F;"
+                            onclick="openClearOldModal()">
+                        <i class="fas fa-broom"></i> Clear Old
+                    </button>
+                    <button type="button" class="wf-btn wf-btn-danger"
+                            onclick="confirmClearAll()">
+                        <i class="fas fa-trash"></i> Clear All
+                    </button>
+                </div>
+            </div>
+
+            <?php if (empty($logs)): ?>
                 <div class="wf-empty">
-                    <i class="fas fa-headset"></i>
-                    <p>No complaints found</p>
+                    <i class="fas fa-history"></i>
+                    <p>No activity logs found</p>
                 </div>
             <?php else: ?>
             <div class="wf-table-wrap">
@@ -1344,65 +1400,54 @@ a { text-decoration: none; }
                     <thead>
                         <tr>
                             <th>ID</th>
-                            <th>Customer</th>
-                            <th>Issue</th>
-                            <th>Status</th>
-                            <th>Date Reported</th>
-                            <th>Handled By</th>
+                            <th>Action</th>
+                            <th>Description</th>
+                            <th>Admin</th>
+                            <th>Timestamp</th>
                             <th style="text-align: right;">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
-                        <?php foreach ($complaints as $c):
-                            $badge = status_badge($c['status']);
-                            $customer_name = trim(($c['first_name'] ?? '') . ' ' . ($c['last_name'] ?? ''));
-                            if ($customer_name === '') $customer_name = 'Customer #' . $c['customer_id'];
+                        <?php foreach ($logs as $log):
+                            $meta = action_icon($log['action']);
                         ?>
                         <tr>
-                            <td><span class="wf-complaint-id">#<?= e($c['complaint_id']) ?></span></td>
+                            <td><span class="wf-log-id">#<?= e($log['log_id']) ?></span></td>
                             <td>
-                                <div class="wf-customer"><?= e($customer_name) ?></div>
-                                <?php if (!empty($c['contact_number'])): ?>
-                                <div style="font-size:0.75rem;color:var(--text-muted);font-weight:500;">
-                                    <i class="fas fa-phone" style="font-size:0.65rem;"></i> <?= e($c['contact_number']) ?>
+                                <div class="wf-action">
+                                    <span class="wf-action-icon" style="color:<?= $meta['color'] ?>;background:<?= $meta['bg'] ?>;">
+                                        <i class="fas <?= $meta['icon'] ?>"></i>
+                                    </span>
+                                    <?= e($log['action']) ?>
                                 </div>
-                                <?php endif; ?>
                             </td>
-                            <td><div class="wf-issue"><?= e($c['issue_description']) ?></div></td>
+                            <td><div class="wf-description"><?= e($log['description'] ?: '—') ?></div></td>
                             <td>
-                                <span class="wf-badge" style="color: <?= $badge['color'] ?>; background: <?= $badge['bg'] ?>;">
-                                    <span class="wf-badge-dot"></span>
-                                    <?= e($badge['label']) ?>
+                                <span class="wf-admin-badge">
+                                    <i class="fas fa-user-shield"></i>
+                                    Admin #<?= e($log['admin_id']) ?>
                                 </span>
                             </td>
-                            <td><span class="wf-date"><?= date('M j, Y', strtotime($c['date_reported'])) ?></span></td>
                             <td>
-                                <?php if (!empty($c['handled_by'])): ?>
-                                    <span class="wf-service"><?= e($c['handled_by']) ?></span>
-                                <?php else: ?>
-                                    <span style="color:var(--text-muted);font-size:0.78rem;">—</span>
-                                <?php endif; ?>
+                                <span class="wf-date">
+                                    <?= date('M j, Y', strtotime($log['timestamp'])) ?>
+                                    <span class="time"><?= date('h:i A', strtotime($log['timestamp'])) ?></span>
+                                </span>
                             </td>
                             <td>
                                 <div class="wf-row-actions">
                                     <button type="button" class="wf-icon-btn view" title="View Details"
                                         onclick='openPanel(<?= json_encode([
-                                            "id"          => $c["complaint_id"],
-                                            "customer"    => $customer_name,
-                                            "customer_id" => $c["customer_id"],
-                                            "contact"     => $c["contact_number"] ?? "",
-                                            "email"       => $c["email"] ?? "",
-                                            "issue"       => $c["issue_description"],
-                                            "status"      => $c["status"],
-                                            "date_reported" => $c["date_reported"],
-                                            "date_resolved" => $c["date_resolved"] ?? "",
-                                            "remarks"     => $c["remarks"] ?? "",
-                                            "handled_by"  => $c["handled_by"] ?? "",
+                                            "id"          => $log["log_id"],
+                                            "admin_id"    => $log["admin_id"],
+                                            "action"      => $log["action"],
+                                            "description" => $log["description"] ?? "",
+                                            "timestamp"   => $log["timestamp"],
                                         ]) ?>)'>
                                         <i class="fas fa-eye"></i>
                                     </button>
                                     <button type="button" class="wf-icon-btn delete" title="Delete"
-                                        onclick='confirmDelete(<?= (int)$c["complaint_id"] ?>)'>
+                                        onclick='confirmDelete(<?= (int)$log["log_id"] ?>)'>
                                         <i class="fas fa-trash"></i>
                                     </button>
                                 </div>
@@ -1417,7 +1462,7 @@ a { text-decoration: none; }
             <?php if ($total_pages > 1): ?>
             <div class="wf-pagination-wrap">
                 <div class="wf-pagination-info">
-                    Showing <?= number_format(min($offset + 1, $total_rows)) ?>–<?= number_format(min($offset + $per_page, $total_rows)) ?> of <?= number_format($total_rows) ?> complaints
+                    Showing <?= number_format(min($offset + 1, $total_rows)) ?>–<?= number_format(min($offset + $per_page, $total_rows)) ?> of <?= number_format($total_rows) ?> logs
                 </div>
                 <div class="wf-pagination">
                     <a href="<?= e(build_url(['page' => max(1, $page - 1)])) ?>" class="wf-page-btn <?= $page <= 1 ? 'disabled' : '' ?>">
@@ -1460,15 +1505,15 @@ a { text-decoration: none; }
 </div>
 
 <!-- ══════════════════════════════════════════
-     SIDE PANEL — Complaint Details
+     SIDE PANEL — Log Details
      ══════════════════════════════════════════ -->
 <div class="wf-panel-overlay" id="panelOverlay" onclick="closePanel()"></div>
-<aside class="wf-panel" id="complaintPanel">
+<aside class="wf-panel" id="logPanel">
     <div class="wf-panel-header">
         <div class="wf-panel-title">
-            <div class="wf-panel-title-icon"><i class="fas fa-headset"></i></div>
+            <div class="wf-panel-title-icon"><i class="fas fa-history"></i></div>
             <div>
-                <h3 id="panelTitle">Complaint Details</h3>
+                <h3 id="panelTitle">Log Details</h3>
                 <p id="panelSubtitle">Loading...</p>
             </div>
         </div>
@@ -1480,22 +1525,47 @@ a { text-decoration: none; }
         <!-- dynamic -->
     </div>
     <div class="wf-panel-footer" id="panelFooter">
-        <!-- dynamic action buttons -->
+        <!-- dynamic -->
     </div>
 </aside>
 
-<!-- Hidden form for status updates -->
-<form method="post" id="statusUpdateForm" style="display:none;">
-    <input type="hidden" name="action" value="update_status">
-    <input type="hidden" name="id" id="updateId">
-    <input type="hidden" name="status" id="updateStatus">
-    <input type="hidden" name="remarks" id="updateRemarks">
-</form>
+<!-- MODAL — Clear Old Logs -->
+<div class="wf-panel-overlay" id="clearOldOverlay" onclick="closeClearOldModal()"></div>
+<div id="clearOldModal" style="position:fixed; top:50%; left:50%; transform:translate(-50%,-50%) scale(0.95); width:min(440px, 92vw); background:white; border-radius:16px; padding:1.75rem; z-index:1060; opacity:0; visibility:hidden; transition:all 0.25s; box-shadow:0 20px 60px rgba(6,52,82,0.25);">
+    <div style="width:56px;height:56px;border-radius:14px;background:#FEF3E2;color:#C2410C;display:flex;align-items:center;justify-content:center;font-size:1.4rem;margin:0 auto 1rem;">
+        <i class="fas fa-broom"></i>
+    </div>
+    <h3 style="font-size:1.15rem;color:var(--dark-blue);text-align:center;margin-bottom:0.5rem;">Clear Old Logs</h3>
+    <p style="font-size:0.88rem;color:var(--text-secondary);text-align:center;margin-bottom:1.5rem;line-height:1.6;">
+        Delete all logs older than the specified number of days.
+    </p>
+    <div style="margin-bottom:1.25rem;">
+        <label style="display:block;font-size:0.72rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:0.4rem;">
+            Keep logs for the last (days)
+        </label>
+        <input type="number" id="clearOldDays" value="30" min="1" max="3650" class="wf-input">
+    </div>
+    <div style="display:flex; gap:0.6rem; justify-content:center;">
+        <button type="button" class="wf-btn wf-btn-outline" onclick="closeClearOldModal()">Cancel</button>
+        <button type="button" class="wf-btn wf-btn-danger" onclick="submitClearOld()">
+            <i class="fas fa-trash"></i> Clear Logs
+        </button>
+    </div>
+</div>
 
-<!-- Hidden form for delete -->
+<!-- Hidden forms -->
 <form method="post" id="deleteForm" style="display:none;">
     <input type="hidden" name="action" value="delete">
     <input type="hidden" name="id" id="deleteId">
+</form>
+
+<form method="post" id="clearAllForm" style="display:none;">
+    <input type="hidden" name="action" value="clear_all">
+</form>
+
+<form method="post" id="clearOldForm" style="display:none;">
+    <input type="hidden" name="action" value="clear_older">
+    <input type="hidden" name="days" id="clearOldDaysInput">
 </form>
 
 <!-- TOAST WRAP -->
@@ -1527,150 +1597,119 @@ function showToast(type, message) {
    SIDE PANEL
    ══════════════════════════════════════════ */
 const panelOverlay = document.getElementById('panelOverlay');
-const complaintPanel = document.getElementById('complaintPanel');
+const logPanel = document.getElementById('logPanel');
 
 function openPanel(data) {
-    const statusMap = {
-        'pending':     { color: '#946200', bg: '#FEF9E7' },
-        'in progress': { color: '#5B2E91', bg: '#F4ECFB' },
-        'resolved':    { color: '#1E7E45', bg: '#EAF7F0' }
-    };
-    const st = statusMap[String(data.status).toLowerCase()] || { color: '#5A7184', bg: '#F4F7F9' };
+    document.getElementById('panelTitle').textContent = 'Log #' + data.id;
+    document.getElementById('panelSubtitle').textContent = formatDate(data.timestamp);
 
-    document.getElementById('panelTitle').textContent = 'Complaint #' + data.id;
-    document.getElementById('panelSubtitle').textContent =
-        'Reported ' + formatDate(data.date_reported) +
-        (data.date_resolved ? ' • Resolved ' + formatDate(data.date_resolved) : '');
+    const meta = getActionIcon(data.action);
 
     let html = '';
 
-    /* Status */
+    /* Action */
     html += `
     <div class="wf-detail-section">
-        <div class="wf-detail-section-title"><i class="fas fa-info-circle"></i> Status</div>
-        <div style="display:flex;align-items:center;gap:0.75rem;">
-            <span class="wf-badge" style="color:${st.color};background:${st.bg};font-size:0.8rem;padding:0.5rem 0.9rem;">
-                <span class="wf-badge-dot"></span> ${escapeHtml(data.status)}
+        <div class="wf-detail-section-title"><i class="fas fa-bolt"></i> Action</div>
+        <div style="display:flex;align-items:center;gap:0.75rem;padding:0.9rem 1.1rem;background:${meta.bg};border-radius:10px;">
+            <span style="width:38px;height:38px;border-radius:10px;background:white;color:${meta.color};display:flex;align-items:center;justify-content:center;font-size:1rem;">
+                <i class="fas ${meta.icon}"></i>
             </span>
+            <div>
+                <div style="font-size:0.95rem;font-weight:700;color:${meta.color};">${escapeHtml(data.action)}</div>
+                <div style="font-size:0.72rem;color:var(--text-muted);font-weight:600;">Action Type</div>
+            </div>
         </div>
     </div>`;
 
-    /* Customer */
+    /* Description */
     html += `
     <div class="wf-detail-section">
-        <div class="wf-detail-section-title"><i class="fas fa-user"></i> Customer Information</div>
+        <div class="wf-detail-section-title"><i class="fas fa-align-left"></i> Description</div>
+        <div style="background:var(--light-blue-pale);border:1px solid var(--border);border-radius:10px;padding:1rem;font-size:0.88rem;color:var(--text-primary);line-height:1.6;">
+            ${escapeHtml(data.description) || '<span style="color:var(--text-muted);">No description</span>'}
+        </div>
+    </div>`;
+
+    /* Meta */
+    html += `
+    <div class="wf-detail-section">
+        <div class="wf-detail-section-title"><i class="fas fa-info-circle"></i> Details</div>
         <div class="wf-detail-grid">
             <div class="wf-detail-item">
-                <div class="wf-detail-label">Name</div>
-                <div class="wf-detail-value">${escapeHtml(data.customer)}</div>
+                <div class="wf-detail-label">Log ID</div>
+                <div class="wf-detail-value">#${escapeHtml(data.id)}</div>
             </div>
             <div class="wf-detail-item">
-                <div class="wf-detail-label">Customer ID</div>
-                <div class="wf-detail-value">#${escapeHtml(data.customer_id)}</div>
+                <div class="wf-detail-label">Admin ID</div>
+                <div class="wf-detail-value">#${escapeHtml(data.admin_id)}</div>
             </div>
-            <div class="wf-detail-item">
-                <div class="wf-detail-label">Contact</div>
-                <div class="wf-detail-value muted">${escapeHtml(data.contact) || '—'}</div>
-            </div>
-            <div class="wf-detail-item">
-                <div class="wf-detail-label">Email</div>
-                <div class="wf-detail-value muted">${escapeHtml(data.email) || '—'}</div>
+            <div class="wf-detail-item full">
+                <div class="wf-detail-label">Timestamp</div>
+                <div class="wf-detail-value">${formatDate(data.timestamp)}</div>
             </div>
         </div>
     </div>`;
-
-    /* Issue */
-    html += `
-    <div class="wf-detail-section">
-        <div class="wf-detail-section-title"><i class="fas fa-comment-dots"></i> Issue Description</div>
-        <div style="background:var(--light-blue-pale);border:1px solid var(--border);border-radius:10px;padding:1rem;font-size:0.88rem;color:var(--text-primary);line-height:1.6;">
-            ${escapeHtml(data.issue)}
-        </div>
-    </div>`;
-
-    /* Resolution */
-    if (data.remarks || data.handled_by) {
-        html += `
-        <div class="wf-detail-section">
-            <div class="wf-detail-section-title"><i class="fas fa-check-double"></i> Resolution</div>
-            <div class="wf-detail-grid">
-                <div class="wf-detail-item">
-                    <div class="wf-detail-label">Handled By</div>
-                    <div class="wf-detail-value">${escapeHtml(data.handled_by) || '—'}</div>
-                </div>
-                <div class="wf-detail-item">
-                    <div class="wf-detail-label">Resolved On</div>
-                    <div class="wf-detail-value">${data.date_resolved ? formatDate(data.date_resolved) : '—'}</div>
-                </div>
-                <div class="wf-detail-item full">
-                    <div class="wf-detail-label">Remarks</div>
-                    <div class="wf-detail-value muted">${escapeHtml(data.remarks) || 'No remarks'}</div>
-                </div>
-            </div>
-        </div>`;
-    }
-
-    /* Add remarks form */
-    const currentStatus = String(data.status);
-    if (currentStatus !== 'Resolved') {
-        html += `
-        <div class="wf-detail-section">
-            <div class="wf-detail-section-title"><i class="fas fa-pen"></i> Add Remarks / Update</div>
-            <div class="wf-form-group">
-                <label>Remarks</label>
-                <textarea class="wf-textarea" id="panelRemarks" placeholder="Enter your remarks or resolution notes...">${escapeHtml(data.remarks)}</textarea>
-            </div>
-        </div>`;
-    }
 
     document.getElementById('panelBody').innerHTML = html;
 
-    /* Footer actions */
+    /* Footer */
     let footerHtml = '';
-
-    if (currentStatus === 'Pending') {
-        footerHtml += `<button type="button" class="wf-btn wf-btn-primary" onclick='updateComplaint(${data.id}, "In Progress")'><i class="fas fa-spinner"></i> Mark In Progress</button>`;
-        footerHtml += `<button type="button" class="wf-btn wf-btn-outline" style="border-color:var(--green);color:var(--green);" onclick='updateComplaint(${data.id}, "Resolved")'><i class="fas fa-check"></i> Mark Resolved</button>`;
-    } else if (currentStatus === 'In Progress') {
-        footerHtml += `<button type="button" class="wf-btn wf-btn-primary" style="background:var(--green);" onclick='updateComplaint(${data.id}, "Resolved")'><i class="fas fa-check-double"></i> Mark Resolved</button>`;
-        footerHtml += `<button type="button" class="wf-btn wf-btn-outline" onclick='updateComplaint(${data.id}, "Pending")'><i class="fas fa-undo"></i> Back to Pending</button>`;
-    } else if (currentStatus === 'Resolved') {
-        footerHtml += `<button type="button" class="wf-btn wf-btn-outline" onclick='updateComplaint(${data.id}, "In Progress")'><i class="fas fa-redo"></i> Reopen</button>`;
-    }
-
+    footerHtml += `<button type="button" class="wf-btn wf-btn-danger" onclick='closePanel(); confirmDelete(${data.id})'><i class="fas fa-trash"></i> Delete Log</button>`;
     footerHtml += `<button type="button" class="wf-btn wf-btn-outline" onclick="closePanel()"><i class="fas fa-times"></i> Close</button>`;
 
     document.getElementById('panelFooter').innerHTML = footerHtml;
 
     panelOverlay.classList.add('open');
-    complaintPanel.classList.add('open');
+    logPanel.classList.add('open');
     document.body.style.overflow = 'hidden';
 }
 
 function closePanel() {
     panelOverlay.classList.remove('open');
-    complaintPanel.classList.remove('open');
+    logPanel.classList.remove('open');
     document.body.style.overflow = '';
 }
 
-function updateComplaint(id, status) {
-    const remarksEl = document.getElementById('panelRemarks');
-    const remarks = remarksEl ? remarksEl.value.trim() : '';
-
-    document.getElementById('updateId').value = id;
-    document.getElementById('updateStatus').value = status;
-    document.getElementById('updateRemarks').value = remarks;
-    document.getElementById('statusUpdateForm').submit();
-}
-
 /* ══════════════════════════════════════════
-   DELETE
+   DELETE / CLEAR
    ══════════════════════════════════════════ */
 function confirmDelete(id) {
-    if (confirm('Delete complaint #' + id + '?\n\nThis action cannot be undone.')) {
+    if (confirm('Delete log #' + id + '?\n\nThis action cannot be undone.')) {
         document.getElementById('deleteId').value = id;
         document.getElementById('deleteForm').submit();
     }
+}
+
+function confirmClearAll() {
+    if (confirm('⚠️ Delete ALL activity logs?\n\nThis action cannot be undone.\n\nType OK to confirm.')) {
+        document.getElementById('clearAllForm').submit();
+    }
+}
+
+function openClearOldModal() {
+    const modal = document.getElementById('clearOldModal');
+    const overlay = document.getElementById('clearOldOverlay');
+    modal.style.opacity = '1';
+    modal.style.visibility = 'visible';
+    modal.style.transform = 'translate(-50%,-50%) scale(1)';
+    overlay.classList.add('open');
+}
+
+function closeClearOldModal() {
+    const modal = document.getElementById('clearOldModal');
+    const overlay = document.getElementById('clearOldOverlay');
+    modal.style.opacity = '0';
+    modal.style.visibility = 'hidden';
+    modal.style.transform = 'translate(-50%,-50%) scale(0.95)';
+    overlay.classList.remove('open');
+}
+
+function submitClearOld() {
+    const days = parseInt(document.getElementById('clearOldDays').value) || 30;
+    if (days < 1) { showToast('error', 'Please enter at least 1 day.'); return; }
+    document.getElementById('clearOldDaysInput').value = days;
+    document.getElementById('clearOldForm').submit();
 }
 
 /* ══════════════════════════════════════════
@@ -1698,8 +1737,30 @@ function formatDate(dateStr) {
     return months[d.getMonth()] + ' ' + d.getDate() + ', ' + d.getFullYear() + ' • ' + h + ':' + min + ' ' + ampm;
 }
 
+function getActionIcon(action) {
+    const a = String(action || '').toLowerCase();
+    if (a.includes('login'))     return { icon: 'fa-sign-in-alt', color: '#1E7E45', bg: '#EAF7F0' };
+    if (a.includes('logout'))    return { icon: 'fa-sign-out-alt', color: '#A8322D', bg: '#FDEDEC' };
+    if (a.includes('delete'))    return { icon: 'fa-trash', color: '#A8322D', bg: '#FDEDEC' };
+    if (a.includes('create') || a.includes('insert') || a.includes('add'))
+        return { icon: 'fa-plus-circle', color: '#1E7E45', bg: '#EAF7F0' };
+    if (a.includes('update') || a.includes('edit'))
+        return { icon: 'fa-pen', color: '#00537A', bg: '#EBF5FB' };
+    if (a.includes('booking'))   return { icon: 'fa-clipboard-list', color: '#5B2E91', bg: '#F4ECFB' };
+    if (a.includes('complaint')) return { icon: 'fa-headset', color: '#946200', bg: '#FEF9E7' };
+    if (a.includes('feedback'))  return { icon: 'fa-star', color: '#B88A00', bg: '#FFF9DB' };
+    if (a.includes('payment'))   return { icon: 'fa-credit-card', color: '#00537A', bg: '#EBF5FB' };
+    if (a.includes('inventory') || a.includes('stock'))
+        return { icon: 'fa-boxes', color: '#5B2E91', bg: '#F4ECFB' };
+    if (a.includes('staff'))     return { icon: 'fa-user-tie', color: '#00537A', bg: '#EBF5FB' };
+    return { icon: 'fa-info-circle', color: '#5A7184', bg: '#F4F7F9' };
+}
+
 document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape') closePanel();
+    if (e.key === 'Escape') {
+        closePanel();
+        closeClearOldModal();
+    }
 });
 
 /* ══════════════════════════════════════════

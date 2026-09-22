@@ -1,59 +1,128 @@
 <?php
-session_start();
-include 'db_connect.php';
+/**
+ * admin_login.php
+ * WashFlow — Admin Login (Card Split Screen)
+ * Direct URL access only.
+ */
+define('APP_STARTED', true);
+require_once 'session_config.php';
+require_once 'db_connect.php';
+require_once 'csrf_helper.php';
+require_once 'rate_limiter.php';
+require_once 'logger.php';
+require_once 'functions.php';
 
-// If already logged in as admin, go straight to dashboard
-if (!empty($_SESSION['admin_id'])) {
+/* 🆕 Check kung may naka-login na — using unified helper */
+$cu = current_user();
+if ($cu && $cu['type'] === 'admin') {
     header('Location: dashboard.php');
     exit();
 }
+// Kung staff ang naka-login, hindi natin i-redirect — hayaan mag-login as admin
 
 $error_message = '';
+$username_value = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $username = trim($_POST['username'] ?? '');
-    $password = $_POST['password'] ?? '';
-
-    if ($username && $password) {
-        $stmt = $conn->prepare("SELECT * FROM admin WHERE username = ? LIMIT 1");
-        $stmt->bind_param('s', $username);
-        $stmt->execute();
-        $result = $stmt->get_result();
-
-        if ($admin = $result->fetch_assoc()) {
-            $dbPass = $admin['password'] ?? '';
-            $authenticated = false;
-
-            // Support both plain-text and hashed passwords
-            if (!empty($dbPass) && password_verify($password, $dbPass)) {
-                $authenticated = true;
-            } elseif ($password === $dbPass) {
-                $authenticated = true;
-                // Upgrade to hash
-                $newHash = password_hash($password, PASSWORD_DEFAULT);
-                $up = $conn->prepare("UPDATE admin SET password = ? WHERE Admin_ID = ?");
-                $up->bind_param('si', $newHash, $admin['Admin_ID']);
-                $up->execute();
-                $up->close();
-            }
-
-            if ($authenticated) {
-                $_SESSION['admin_id']       = $admin['Admin_ID'];
-                $_SESSION['Admin_ID']       = $admin['Admin_ID']; // keep both for compatibility
-                $_SESSION['username']       = $admin['username'];
-                $_SESSION['is_admin']       = true;
-                $_SESSION['login_success']  = true;
-                header('Location: dashboard.php');
-                exit();
-            } else {
-                $error_message = 'Invalid username or password. Please try again.';
-            }
-        } else {
-            $error_message = 'Invalid username or password. Please try again.';
-        }
-        $stmt->close();
+    if (!validate_csrf_token($_POST['csrf_token'] ?? '')) {
+        Logger::security('CSRF mismatch on admin login', ['ip' => get_client_ip()]);
+        $error_message = 'Security token expired. Please refresh and try again.';
     } else {
-        $error_message = 'Please fill in all fields.';
+        $rate_key = 'admin_login_' . get_client_ip();
+        $rate_check = check_rate_limit($rate_key, 5, 900);
+
+        if ($rate_check !== true) {
+            Logger::security('Admin login rate limit exceeded', ['ip' => get_client_ip()]);
+            $error_message = $rate_check;
+        } else {
+            $username = trim($_POST['username'] ?? '');
+            $password = $_POST['password'] ?? '';
+            $username_value = $username;
+
+            if ($username === '' || $password === '') {
+                $error_message = 'Please fill in all fields.';
+            } else {
+                $stmt = $conn->prepare("SELECT Admin_ID, username, password FROM admin WHERE username = ? LIMIT 1");
+
+                if (!$stmt) {
+                    Logger::error('Prepare failed on admin login', ['error' => $conn->error]);
+                    $error_message = 'System error. Please try again.';
+                } else {
+                    $stmt->bind_param('s', $username);
+                    $stmt->execute();
+                    $result = $stmt->get_result();
+
+                    if ($admin = $result->fetch_assoc()) {
+                        $dbPass = $admin['password'] ?? '';
+                        $authenticated = false;
+
+                        if (!empty($dbPass) && password_verify($password, $dbPass)) {
+                            $authenticated = true;
+                            if (password_needs_rehash($dbPass, PASSWORD_DEFAULT)) {
+                                $newHash = password_hash($password, PASSWORD_DEFAULT);
+                                $up = $conn->prepare("UPDATE admin SET password = ? WHERE Admin_ID = ?");
+                                if ($up) {
+                                    $up->bind_param('si', $newHash, $admin['Admin_ID']);
+                                    $up->execute();
+                                    $up->close();
+                                }
+                            }
+                        } elseif ($password === $dbPass) {
+                            $authenticated = true;
+                            $newHash = password_hash($password, PASSWORD_DEFAULT);
+                            $up = $conn->prepare("UPDATE admin SET password = ? WHERE Admin_ID = ?");
+                            if ($up) {
+                                $up->bind_param('si', $newHash, $admin['Admin_ID']);
+                                $up->execute();
+                                $up->close();
+                                Logger::info('Admin password upgraded to hash', ['admin_id' => $admin['Admin_ID']]);
+                            }
+                        }
+
+                        if ($authenticated) {
+                            clear_rate_limit($rate_key);
+                            session_regenerate_id(true);
+
+                            /* 🆕 Clear ALL previous login data + set new */
+                            set_login_session(
+                                'admin',
+                                (int)$admin['Admin_ID'],
+                                $admin['username'],
+                                'Administrator'
+                            );
+
+                            Logger::login('Admin logged in', [
+                                'admin_id' => $admin['Admin_ID'],
+                                'username' => $admin['username'],
+                                'ip' => get_client_ip()
+                            ]);
+
+                            try {
+                                $log = $conn->prepare("INSERT INTO system_logs (admin_id, action, description) VALUES (?, 'Admin Login', ?)");
+                                if ($log) {
+                                    $desc = "Login from IP: " . get_client_ip();
+                                    $log->bind_param('is', $admin['Admin_ID'], $desc);
+                                    $log->execute();
+                                    $log->close();
+                                }
+                            } catch (Exception $e) {
+                                Logger::error('Failed to insert system log', ['error' => $e->getMessage()]);
+                            }
+
+                            header('Location: dashboard.php');
+                            exit();
+                        } else {
+                            Logger::security('Failed admin login - wrong password', ['username' => $username, 'ip' => get_client_ip()]);
+                            $error_message = 'Invalid username or password. Please try again.';
+                        }
+                    } else {
+                        Logger::security('Failed admin login - user not found', ['username' => $username, 'ip' => get_client_ip()]);
+                        $error_message = 'Invalid username or password. Please try again.';
+                    }
+                    $stmt->close();
+                }
+            }
+        }
     }
 }
 ?>
@@ -62,589 +131,788 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Login - MangTV Laundry Shop</title>
+    <title>Admin Portal — WashFlow</title>
+
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
     <style>
         :root {
-            --dark-blue: #00537A;
-            --yellow: #FFD35B;
-            --light-blue: #A8E8F9;
+            --dark-blue:       #063452;
+            --dark-blue-deep:  #042640;
+            --primary:         #005A85;
+            --primary-mid:     #0076A8;
+            --light-blue:      #A8E8F9;
+            --light-blue-soft: #E8F6FC;
+            --light-blue-pale: #F2FAFD;
+
+            --yellow:          #FFD93D;
+            --yellow-soft:     #FFF9DB;
+            --yellow-dark:     #B88A00;
+
+            --bg-light:        #E5EEF5;
+
+            --text-primary:    #0A2540;
+            --text-secondary:  #5A7184;
+            --text-muted:      #94A9B8;
+
+            --border:          #C9DCE8;
+            --border-light:    #DCEAF3;
         }
 
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
 
         body {
-            font-family: 'Poppins', sans-serif;
-            background: linear-gradient(135deg, var(--light-blue) 0%, #e3f5fc 100%);
+            font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            color: var(--text-primary);
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+            overflow-x: hidden;
             min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
-        }
-
-        .login-wrapper {
-            background: white;
-            border-radius: 25px;
-            box-shadow: 0 20px 60px rgba(0, 83, 122, 0.15);
-            overflow: hidden;
-            max-width: 1000px;
-            width: 100%;
-            display: flex;
-            animation: slideIn 0.6s ease-out;
-        }
-
-        @keyframes slideIn {
-            from { opacity: 0; transform: translateY(30px); }
-            to   { opacity: 1; transform: translateY(0); }
-        }
-
-        /* Left Side - Image */
-        .login-left {
-            flex: 1;
-            background: linear-gradient(135deg, rgba(0,83,122,0.95) 0%, rgba(0,107,153,0.9) 100%),
-                        url('https://images.unsplash.com/photo-1517677208171-0bc6725a3e60?w=800&h=1200&fit=crop') center/cover;
-            padding: 3rem;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            color: white;
+            background: linear-gradient(135deg, #DDE9F1 0%, #C9DCE8 30%, #B5CFDF 60%, #A5C3D5 100%);
             position: relative;
-            overflow: hidden;
+            padding: 2rem 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
-        .login-left::before {
+        body::before {
             content: '';
-            position: absolute;
-            top: -50%;
-            right: -20%;
-            width: 400px;
-            height: 400px;
-            background: radial-gradient(circle, rgba(168,232,249,0.2) 0%, transparent 70%);
+            position: fixed;
+            top: -15%; left: -10%;
+            width: 650px; height: 650px;
+            background: radial-gradient(circle, rgba(255, 217, 61, 0.15) 0%, transparent 70%);
             border-radius: 50%;
-            animation: float 6s ease-in-out infinite;
+            pointer-events: none;
+            z-index: 0;
+            animation: floatBg 14s ease-in-out infinite;
         }
-
-        @keyframes float {
+        body::after {
+            content: '';
+            position: fixed;
+            bottom: -20%; right: -10%;
+            width: 700px; height: 700px;
+            background: radial-gradient(circle, rgba(4, 38, 64, 0.12) 0%, transparent 70%);
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 0;
+            animation: floatBg 16s ease-in-out infinite reverse;
+        }
+        @keyframes floatBg {
             0%, 100% { transform: translateY(0) rotate(0deg); }
-            50%       { transform: translateY(-20px) rotate(5deg); }
+            50% { transform: translateY(-30px) rotate(5deg); }
         }
 
-        .login-left-content {
+        h1, h2, h3, h4, h5 { font-weight: 700; letter-spacing: -0.02em; }
+        a { text-decoration: none; }
+
+        .wf-page {
             position: relative;
-            z-index: 2;
-            text-align: center;
+            z-index: 5;
+            width: 100%;
+            max-width: 1080px;
         }
 
-        .brand-logo-big {
-            width: 100px;
-            height: 100px;
-            background: var(--yellow);
-            border-radius: 25px;
+        .wf-topbar {
             display: flex;
             align-items: center;
-            justify-content: center;
-            margin: 0 auto 2rem;
-            box-shadow: 0 10px 30px rgba(255,213,91,0.4);
-            animation: bounceIn 1s ease-out;
+            justify-content: space-between;
+            margin-bottom: 1.25rem;
+            padding: 0 0.5rem;
         }
 
-        @keyframes bounceIn {
-            0%   { opacity: 0; transform: scale(0.3); }
-            50%  { transform: scale(1.05); }
-            100% { opacity: 1; transform: scale(1); }
+        .wf-logo { display: flex; align-items: center; gap: 10px; }
+        .wf-logo-mark { width: 40px; height: 40px; flex-shrink: 0; }
+        .wf-logo-mark svg {
+            width: 100%; height: 100%;
+            filter: drop-shadow(0 4px 8px rgba(4, 38, 64, 0.25));
         }
-
-        .brand-logo-big i {
-            font-size: 3rem;
+        .wf-logo-text { display: flex; flex-direction: column; line-height: 1; }
+        .wf-logo-name {
+            font-size: 1.25rem;
+            font-weight: 800;
             color: var(--dark-blue);
+            letter-spacing: -0.04em;
+            line-height: 1;
+        }
+        .wf-logo-name .flow { color: var(--primary-mid); }
+        .wf-logo-tagline {
+            font-size: 0.55rem;
+            font-weight: 500;
+            color: var(--text-secondary);
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            margin-top: 3px;
         }
 
-        .left-title h2 {
-            font-size: 2rem;
-            font-weight: 700;
-            margin-bottom: 1rem;
-            color: var(--yellow);
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
-        }
-
-        .left-title p {
-            font-size: 1rem;
-            opacity: 0.95;
-            line-height: 1.7;
-            margin-bottom: 2rem;
-        }
-
-        .feature-list {
-            list-style: none;
-            padding: 0;
-            text-align: left;
-        }
-
-        .feature-list li {
-            padding: 0.75rem 0;
-            display: flex;
+        .wf-btn-back {
+            display: inline-flex;
             align-items: center;
-            font-size: 0.95rem;
-        }
-
-        .feature-list i {
-            color: var(--yellow);
-            margin-right: 1rem;
-            font-size: 1.1rem;
-            width: 24px;
-        }
-
-        /* Right Side - Form */
-        .login-right {
-            flex: 1;
-            padding: 3rem 2.5rem;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-        }
-
-        .login-header {
-            margin-bottom: 2rem;
-        }
-
-        .brand-logo-small {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-            margin-bottom: 2rem;
-        }
-
-        .logo-icon-small {
-            width: 50px;
-            height: 50px;
-            background: linear-gradient(135deg, var(--yellow) 0%, #ffe082 100%);
-            border-radius: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            box-shadow: 0 4px 12px rgba(255,213,91,0.3);
-        }
-
-        .logo-icon-small i {
-            font-size: 1.5rem;
-            color: var(--dark-blue);
-        }
-
-        .brand-text h3 {
-            font-size: 1.5rem;
-            font-weight: bold;
-            margin: 0;
-            color: var(--dark-blue);
-        }
-
-        .brand-text p {
-            font-size: 0.85rem;
-            color: #6c757d;
-            margin: 0;
-        }
-
-        .admin-badge {
-            display: inline-block;
-            background: var(--dark-blue);
-            color: var(--yellow);
-            padding: 0.4rem 1rem;
-            border-radius: 20px;
-            font-size: 0.7rem;
-            font-weight: 700;
-            letter-spacing: 1px;
-            margin-bottom: 2rem;
-        }
-
-        .welcome-text h4 {
-            color: var(--dark-blue);
-            font-size: 1.8rem;
-            font-weight: 700;
-            margin-bottom: 0.5rem;
-        }
-
-        .welcome-text p {
-            color: #6c757d;
-            font-size: 0.95rem;
-            margin-bottom: 2rem;
-        }
-
-        .alert {
-            border-radius: 12px;
-            border: none;
-            padding: 1rem;
-            margin-bottom: 1.5rem;
-            animation: shake 0.5s;
-        }
-
-        @keyframes shake {
-            0%, 100% { transform: translateX(0); }
-            10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
-            20%, 40%, 60%, 80% { transform: translateX(5px); }
-        }
-
-        .form-group {
-            margin-bottom: 1.5rem;
-        }
-
-        .form-label {
+            gap: 0.4rem;
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(10px);
             color: var(--dark-blue);
             font-weight: 600;
-            margin-bottom: 0.5rem;
-            font-size: 0.9rem;
-            display: block;
+            font-size: 0.8rem;
+            padding: 0.55rem 1.1rem;
+            border: 1.5px solid rgba(201, 220, 232, 0.8);
+            border-radius: 50px;
+            transition: all 0.25s;
+            box-shadow: 0 4px 12px rgba(10, 37, 64, 0.06);
+        }
+        .wf-btn-back:hover {
+            color: var(--primary);
+            border-color: var(--primary-mid);
+            background: white;
+            transform: translateX(-3px);
+            box-shadow: 0 8px 20px rgba(10, 37, 64, 0.12);
         }
 
-        .input-wrapper {
+        .wf-card {
+            background: white;
+            border-radius: 24px;
+            overflow: hidden;
+            box-shadow:
+                0 2px 8px rgba(10, 37, 64, 0.06),
+                0 24px 60px rgba(4, 38, 64, 0.2);
+            display: grid;
+            grid-template-columns: 42% 58%;
+            min-height: 560px;
+            animation: cardIn 0.7s cubic-bezier(0.165, 0.84, 0.44, 1) both;
+        }
+        @keyframes cardIn {
+            from { opacity: 0; transform: translateY(30px) scale(0.98); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        .wf-card-left {
             position: relative;
+            padding: 2.5rem 2rem;
+            background:
+                linear-gradient(150deg, rgba(2, 25, 45, 0.97) 0%, rgba(4, 38, 64, 0.95) 50%, rgba(6, 52, 82, 0.92) 100%),
+                url('https://images.unsplash.com/photo-1604176354204-9268737828e4?w=800') center/cover;
+            color: white;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            overflow: hidden;
         }
 
-        .input-icon {
+        .wf-card-left::before {
+            content: '';
             position: absolute;
-            left: 1rem;
-            top: 50%;
-            transform: translateY(-50%);
-            color: #6c757d;
-            font-size: 1.1rem;
+            top: -100px; right: -100px;
+            width: 350px; height: 350px;
+            background: radial-gradient(circle, rgba(255, 217, 61, 0.22) 0%, transparent 70%);
+            border-radius: 50%;
+            pointer-events: none;
+            animation: pulseGlow 7s ease-in-out infinite;
+        }
+        .wf-card-left::after {
+            content: '';
+            position: absolute;
+            bottom: -100px; left: -100px;
+            width: 280px; height: 280px;
+            background: radial-gradient(circle, rgba(168, 232, 249, 0.12) 0%, transparent 70%);
+            border-radius: 50%;
+            pointer-events: none;
+            animation: pulseGlow 9s ease-in-out infinite reverse;
+        }
+        @keyframes pulseGlow {
+            0%, 100% { opacity: 0.5; }
+            50% { opacity: 1; }
         }
 
-        .form-control {
-            border: 2px solid #e9ecef;
-            border-radius: 12px;
-            padding: 0.9rem 1rem 0.9rem 3rem;
-            font-size: 0.95rem;
-            transition: all 0.3s;
+        .wf-card-left-content {
+            position: relative;
+            z-index: 2;
+        }
+
+        .wf-admin-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            background: rgba(255, 217, 61, 0.15);
+            border: 1px solid rgba(255, 217, 61, 0.4);
+            color: var(--yellow);
+            font-size: 0.65rem;
+            font-weight: 800;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            padding: 0.4rem 0.875rem;
+            border-radius: 50px;
+            margin-bottom: 1.25rem;
+        }
+
+        .wf-card-left h1 {
+            color: white;
+            font-size: 1.85rem;
+            font-weight: 800;
+            letter-spacing: -0.03em;
+            line-height: 1.15;
+            margin-bottom: 1rem;
+        }
+        .wf-card-left h1 .accent {
+            color: var(--yellow);
+            position: relative;
+            display: inline-block;
+        }
+        .wf-card-left h1 .accent::after {
+            content: '';
+            position: absolute;
+            bottom: 4px; left: 0; right: 0;
+            height: 3px;
+            background: rgba(255, 217, 61, 0.4);
+            border-radius: 2px;
+            z-index: -1;
+        }
+
+        .wf-card-left .lead {
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 0.9rem;
+            line-height: 1.65;
+            margin-bottom: 2rem;
+        }
+
+        .wf-benefits {
+            list-style: none;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 0.9rem;
+        }
+        .wf-benefits li {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.75rem;
+        }
+        .wf-benefit-icon {
+            width: 34px;
+            height: 34px;
+            background: linear-gradient(135deg, rgba(255, 217, 61, 0.2) 0%, rgba(255, 217, 61, 0.06) 100%);
+            border: 1px solid rgba(255, 217, 61, 0.3);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            color: var(--yellow);
+            font-size: 0.8rem;
+            box-shadow: 0 4px 10px rgba(255, 217, 61, 0.15);
+        }
+        .wf-benefit-text strong {
+            display: block;
+            color: white;
+            font-weight: 700;
+            font-size: 0.85rem;
+            margin-bottom: 1px;
+            letter-spacing: -0.01em;
+        }
+        .wf-benefit-text span {
+            color: rgba(168, 232, 249, 0.7);
+            font-size: 0.75rem;
+            line-height: 1.4;
+        }
+
+        .wf-card-left-footer {
+            position: relative;
+            z-index: 2;
+            font-size: 0.7rem;
+            color: rgba(168, 232, 249, 0.5);
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            padding-top: 1rem;
+            border-top: 1px solid rgba(168, 232, 249, 0.12);
+        }
+        .wf-card-left-footer i { color: var(--yellow); opacity: 0.7; }
+
+        .wf-card-right {
+            position: relative;
+            padding: 2.5rem 2.75rem;
+            background: linear-gradient(180deg, #F2FAFD 0%, #EAF4FA 100%);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            overflow-y: auto;
+        }
+        .wf-card-right::-webkit-scrollbar { width: 6px; }
+        .wf-card-right::-webkit-scrollbar-track { background: transparent; }
+        .wf-card-right::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+        .wf-form-container {
             width: 100%;
+            max-width: 420px;
+            margin: 0 auto;
         }
 
-        .form-control:focus {
-            border-color: var(--light-blue);
-            box-shadow: 0 0 0 0.2rem rgba(168, 232, 249, 0.25);
+        .wf-form-header { margin-bottom: 1.75rem; }
+        .wf-eyebrow {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            color: var(--dark-blue);
+            font-size: 0.65rem;
+            font-weight: 800;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            margin-bottom: 0.65rem;
+            padding: 0.3rem 0.8rem;
+            background: linear-gradient(135deg, var(--yellow-soft) 0%, #FFFFFF 100%);
+            border: 1px solid rgba(255, 217, 61, 0.4);
+            border-radius: 50px;
+            box-shadow: 0 2px 6px rgba(255, 217, 61, 0.15);
+        }
+        .wf-eyebrow i { color: var(--yellow-dark); }
+
+        .wf-form-header h2 {
+            color: var(--dark-blue);
+            font-size: 1.65rem;
+            font-weight: 800;
+            letter-spacing: -0.03em;
+            line-height: 1.2;
+            margin-bottom: 0.35rem;
+        }
+        .wf-form-header p {
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+            margin: 0;
+        }
+
+        .wf-form-group { margin-bottom: 1.1rem; }
+        .wf-form-label {
+            display: block;
+            color: var(--dark-blue);
+            font-weight: 600;
+            margin-bottom: 0.4rem;
+            font-size: 0.82rem;
+        }
+
+        .wf-input-wrap { position: relative; }
+        .wf-input-icon {
+            position: absolute;
+            left: 0.95rem; top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            pointer-events: none;
+            z-index: 2;
+            transition: color 0.25s;
+        }
+        .wf-form-control {
+            width: 100%;
+            border: 1.5px solid var(--border);
+            border-radius: 11px;
+            padding: 0.8rem 1rem 0.8rem 2.5rem;
+            font-size: 0.9rem;
+            font-family: inherit;
+            color: var(--text-primary);
+            background: white;
+            transition: all 0.25s;
+        }
+        .wf-form-control::placeholder { color: var(--text-muted); }
+        .wf-form-control:focus {
+            border-color: var(--dark-blue);
+            box-shadow: 0 0 0 4px rgba(6, 52, 82, 0.12);
             outline: none;
         }
+        .wf-input-wrap:focus-within .wf-input-icon { color: var(--dark-blue); }
 
-        .form-control.is-invalid {
-            border-color: #dc3545;
-        }
-
-        .password-toggle {
+        .wf-password-toggle {
             position: absolute;
-            right: 1rem;
-            top: 50%;
+            right: 0.95rem; top: 50%;
             transform: translateY(-50%);
+            color: var(--text-muted);
             cursor: pointer;
-            color: #6c757d;
-            transition: color 0.3s;
-            z-index: 5;
+            z-index: 2;
+            transition: color 0.25s;
+            padding: 4px;
+            font-size: 0.85rem;
         }
+        .wf-password-toggle:hover { color: var(--dark-blue); }
 
-        .password-toggle:hover {
-            color: var(--dark-blue);
-        }
-
-        .form-options {
+        .wf-form-options {
             display: flex;
             justify-content: space-between;
             align-items: center;
             margin-bottom: 1.5rem;
-            font-size: 0.85rem;
+            font-size: 0.82rem;
         }
-
-        .remember-me {
+        .wf-remember {
             display: flex;
             align-items: center;
             gap: 0.5rem;
+            color: var(--text-secondary);
+            cursor: pointer;
         }
-
-        .form-check-input:checked {
-            background-color: var(--dark-blue);
-            border-color: var(--dark-blue);
+        .wf-remember input[type="checkbox"] {
+            width: 16px;
+            height: 16px;
+            accent-color: var(--dark-blue);
+            cursor: pointer;
         }
-
-        .forgot-password {
+        .wf-forgot {
             color: var(--dark-blue);
-            text-decoration: none;
             font-weight: 600;
-            transition: color 0.3s;
+            transition: color 0.25s;
         }
+        .wf-forgot:hover { color: var(--primary-mid); }
 
-        .forgot-password:hover {
-            color: #006b99;
-        }
-
-        .btn-login {
-            background: linear-gradient(135deg, var(--yellow) 0%, #ffe082 100%);
-            color: var(--dark-blue);
-            border: none;
-            padding: 1rem;
-            border-radius: 12px;
-            font-weight: 700;
-            font-size: 1rem;
+        .wf-btn-primary {
             width: 100%;
+            background: linear-gradient(135deg, var(--dark-blue-deep) 0%, var(--primary) 100%);
+            color: white;
+            border: none;
+            font-weight: 700;
+            font-size: 0.925rem;
+            padding: 0.95rem 1.5rem;
+            border-radius: 50px;
             transition: all 0.3s;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            box-shadow: 0 4px 12px rgba(255,213,91,0.3);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            box-shadow: 0 6px 16px rgba(4, 38, 64, 0.35);
+            cursor: pointer;
+            font-family: inherit;
+        }
+        .wf-btn-primary:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 24px rgba(4, 38, 64, 0.45);
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-mid) 100%);
+        }
+        .wf-btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
+        .wf-btn-primary i { color: var(--yellow); }
+
+        .wf-divider {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin: 1.5rem 0;
+            color: var(--text-muted);
+            font-size: 0.75rem;
+        }
+        .wf-divider::before,
+        .wf-divider::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: var(--border-light);
         }
 
-        .btn-login:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 8px 20px rgba(255,213,91,0.4);
-        }
-
-        .btn-login:active {
-            transform: translateY(-1px);
-        }
-
-        .btn-login:disabled {
-            opacity: 0.7;
-            cursor: not-allowed;
-            transform: none;
-        }
-
-        .btn-login .spinner {
-            display: none;
-            width: 18px;
-            height: 18px;
-            border: 2px solid rgba(0,83,122,0.3);
-            border-top-color: var(--dark-blue);
-            border-radius: 50%;
-            animation: spin 0.7s linear infinite;
-            margin-right: 0.5rem;
-            vertical-align: middle;
-        }
-
-        .btn-login.loading .spinner { display: inline-block; }
-        .btn-login.loading .btn-text { display: none; }
-
-        @keyframes spin { to { transform: rotate(360deg); } }
-
-        .back-link {
+        .wf-auth-footer {
             text-align: center;
-            margin-top: 2rem;
-            color: #6c757d;
-            font-size: 0.9rem;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
         }
+        .wf-auth-footer a {
+            color: var(--primary);
+            font-weight: 700;
+            transition: color 0.25s;
+        }
+        .wf-auth-footer a:hover { color: var(--primary-mid); }
 
-        .back-link a {
+        .wf-alert {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.7rem;
+            padding: 0.8rem 1rem;
+            border-radius: 11px;
+            margin-bottom: 1.1rem;
+            font-size: 0.82rem;
+            animation: shake 0.4s ease-out;
+        }
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-6px); }
+            75% { transform: translateX(6px); }
+        }
+        .wf-alert-danger {
+            background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
+            border-left: 4px solid #dc3545;
+            color: #7f1d1d;
+        }
+        .wf-alert-danger i { color: #dc3545; font-size: 1rem; margin-top: 2px; flex-shrink: 0; }
+
+        .wf-alert-warning {
+            background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+            border-left: 4px solid #f59e0b;
+            color: #78350f;
+        }
+        .wf-alert-warning i { color: #f59e0b; font-size: 1rem; margin-top: 2px; flex-shrink: 0; }
+
+        .wf-alert-info {
+            background: linear-gradient(135deg, #E8F6FC 0%, #F2FAFD 100%);
+            border-left: 4px solid var(--primary-mid);
             color: var(--dark-blue);
-            font-weight: 600;
-            text-decoration: none;
-            transition: color 0.3s;
+        }
+        .wf-alert-info i { color: var(--primary-mid); font-size: 1rem; margin-top: 2px; flex-shrink: 0; }
+
+        .wf-security-footer {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            margin-top: 1.25rem;
+            padding-top: 1rem;
+            border-top: 1px solid var(--border-light);
+            font-size: 0.72rem;
+            color: var(--text-muted);
+        }
+        .wf-security-footer i { color: var(--yellow-dark); }
+
+        @media (max-width: 900px) {
+            body { padding: 1.25rem 0.75rem; align-items: flex-start; }
+            .wf-card {
+                grid-template-columns: 1fr;
+                min-height: auto;
+            }
+            .wf-card-left {
+                padding: 2rem 1.75rem;
+                min-height: auto;
+            }
+            .wf-card-left h1 { font-size: 1.5rem; }
+            .wf-card-left .lead { font-size: 0.85rem; margin-bottom: 1.5rem; }
+            .wf-benefits {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 0.75rem;
+            }
+            .wf-card-left-footer { margin-top: 1.5rem; }
+            .wf-card-right { padding: 2rem 1.75rem; }
         }
 
-        .back-link a:hover {
-            color: #006b99;
-        }
-
-        @media (max-width: 768px) {
-            .login-wrapper {
-                flex-direction: column;
-            }
-
-            .login-left {
-                padding: 2rem;
-                min-height: 300px;
-            }
-
-            .brand-logo-big {
-                width: 80px;
-                height: 80px;
-            }
-
-            .brand-logo-big i {
-                font-size: 2.5rem;
-            }
-
-            .left-title h2 {
-                font-size: 1.5rem;
-            }
-
-            .feature-list {
-                display: none;
-            }
-
-            .login-right {
-                padding: 2rem 1.5rem;
-            }
-
-            .form-options {
-                flex-direction: column;
-                gap: 1rem;
-                align-items: flex-start;
-            }
+        @media (max-width: 576px) {
+            .wf-topbar { margin-bottom: 0.75rem; padding: 0; }
+            .wf-logo-name { font-size: 1.1rem; }
+            .wf-logo-mark { width: 34px; height: 34px; }
+            .wf-logo-tagline { display: none; }
+            .wf-btn-back { font-size: 0.75rem; padding: 0.5rem 0.9rem; }
+            .wf-card { border-radius: 20px; }
+            .wf-card-left { padding: 1.5rem 1.25rem; }
+            .wf-card-left h1 { font-size: 1.3rem; }
+            .wf-benefits { grid-template-columns: 1fr; gap: 0.6rem; }
+            .wf-benefit-icon { width: 30px; height: 30px; font-size: 0.75rem; }
+            .wf-card-right { padding: 1.75rem 1.25rem; }
+            .wf-form-header h2 { font-size: 1.35rem; }
         }
     </style>
 </head>
 <body>
-    <div class="login-wrapper">
-        <!-- Left Side - Image & Branding -->
-        <div class="login-left">
-            <div class="login-left-content">
-                <div class="brand-logo-big">
-                    <i class="fas fa-tshirt"></i>
+
+    <div class="wf-page">
+
+        <div class="wf-topbar">
+            <a href="homepage.php" class="wf-logo">
+                <div class="wf-logo-mark">
+                    <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <defs>
+                            <linearGradient id="wfLogoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" stop-color="#0076A8"/>
+                                <stop offset="100%" stop-color="#005A85"/>
+                            </linearGradient>
+                            <linearGradient id="wfWaveGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                                <stop offset="0%" stop-color="#FFD93D"/>
+                                <stop offset="100%" stop-color="#A8E8F9"/>
+                            </linearGradient>
+                        </defs>
+                        <rect x="2" y="2" width="60" height="60" rx="16" fill="url(#wfLogoGrad)"/>
+                        <path d="M14 24 L20 42 L26 30 L32 42 L38 24" stroke="url(#wfWaveGrad)" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+                        <circle cx="44" cy="24" r="2.5" fill="#FFD93D" opacity="0.9"/>
+                        <circle cx="48" cy="32" r="1.8" fill="#FFD93D" opacity="0.7"/>
+                        <circle cx="44" cy="40" r="1.2" fill="#FFD93D" opacity="0.5"/>
+                        <path d="M14 48 Q22 44 32 48 T50 48" stroke="#A8E8F9" stroke-width="2" stroke-linecap="round" fill="none" opacity="0.6"/>
+                    </svg>
                 </div>
-                <div class="left-title">
-                    <h2>MangTV Laundry Shop</h2>
-                    <p>Manage your laundry business with ease. Access your dashboard to monitor schedules, transactions, and customer data.</p>
+                <div class="wf-logo-text">
+                    <span class="wf-logo-name">Wash<span class="flow">Flow</span></span>
+                    <span class="wf-logo-tagline">Laundry System</span>
                 </div>
-                <ul class="feature-list">
-                    <li>
-                        <i class="fas fa-chart-line"></i>
-                        <span>Real-time business analytics</span>
-                    </li>
-                    <li>
-                        <i class="fas fa-calendar-check"></i>
-                        <span>Schedule management system</span>
-                    </li>
-                    <li>
-                        <i class="fas fa-users"></i>
-                        <span>Customer database access</span>
-                    </li>
-                    <li>
-                        <i class="fas fa-shield-alt"></i>
-                        <span>Secure admin portal</span>
-                    </li>
-                </ul>
-            </div>
+            </a>
+
+            <a href="homepage.php" class="wf-btn-back">
+                <i class="fas fa-arrow-left"></i> Back to Home
+            </a>
         </div>
 
-        <!-- Right Side - Login Form -->
-        <div class="login-right">
-            <div class="login-header">
-                <div class="brand-logo-small">
-                    <div class="logo-icon-small">
-                        <i class="fas fa-tshirt"></i>
-                    </div>
-                    <div class="brand-text">
-                        <h3>MangTV Laundry Shop</h3>
-                        <p>Admin Portal</p>
-                    </div>
-                </div>
-                <div class="admin-badge">
-                    <i class="fas fa-shield-alt me-1"></i> ADMIN ACCESS
-                </div>
-            </div>
+        <div class="wf-card">
 
-            <div class="welcome-text">
-                <h4>Welcome Back!</h4>
-                <p>Sign in to access your admin dashboard</p>
-            </div>
+            <aside class="wf-card-left">
+                <div class="wf-card-left-content">
+                    <span class="wf-admin-badge">
+                        <i class="fas fa-shield-alt"></i> ADMIN ACCESS
+                    </span>
 
-            <!-- Error Message -->
-            <?php if ($error_message): ?>
-            <div class="alert alert-danger" role="alert">
-                <i class="fas fa-exclamation-circle me-2"></i>
-                <strong>Login Failed!</strong> <?php echo htmlspecialchars($error_message); ?>
-            </div>
-            <?php endif; ?>
+                    <h1>Admin <span class="accent">control panel</span> access.</h1>
+                    <p class="lead">
+                        Sign in with your administrator credentials to manage bookings,
+                        monitor operations, and oversee the entire WashFlow system.
+                    </p>
 
-            <!-- Login Form -->
-            <form id="adminLoginForm" method="POST" action="admin_login.php">
-                <div class="form-group">
-                    <label class="form-label" for="usernameInput">Username</label>
-                    <div class="input-wrapper">
-                        <i class="fas fa-user input-icon"></i>
-                        <input
-                            type="text"
-                            class="form-control"
-                            id="usernameInput"
-                            name="username"
-                            placeholder="Enter your username"
-                            autocomplete="username"
-                            value="<?php echo htmlspecialchars($_POST['username'] ?? ''); ?>"
-                            required
-                        >
-                    </div>
+                    <ul class="wf-benefits">
+                        <li>
+                            <div class="wf-benefit-icon"><i class="fas fa-users-cog"></i></div>
+                            <div class="wf-benefit-text">
+                                <strong>Full System Control</strong>
+                                <span>Manage all aspects of the platform</span>
+                            </div>
+                        </li>
+                        <li>
+                            <div class="wf-benefit-icon"><i class="fas fa-chart-line"></i></div>
+                            <div class="wf-benefit-text">
+                                <strong>Business Analytics</strong>
+                                <span>Real-time revenue &amp; reports</span>
+                            </div>
+                        </li>
+                        <li>
+                            <div class="wf-benefit-icon"><i class="fas fa-boxes"></i></div>
+                            <div class="wf-benefit-text">
+                                <strong>Inventory Management</strong>
+                                <span>Track supplies &amp; stock levels</span>
+                            </div>
+                        </li>
+                        <li>
+                            <div class="wf-benefit-icon"><i class="fas fa-file-shield"></i></div>
+                            <div class="wf-benefit-text">
+                                <strong>Audit Logs</strong>
+                                <span>Complete activity tracking</span>
+                            </div>
+                        </li>
+                    </ul>
                 </div>
 
-                <div class="form-group">
-                    <label class="form-label" for="passwordInput">Password</label>
-                    <div class="input-wrapper">
-                        <i class="fas fa-lock input-icon"></i>
-                        <input
-                            type="password"
-                            class="form-control"
-                            id="passwordInput"
-                            name="password"
-                            placeholder="Enter your password"
-                            autocomplete="current-password"
-                            required
-                        >
-                        <i class="fas fa-eye password-toggle" id="togglePassword"></i>
-                    </div>
+                <div class="wf-card-left-footer">
+                    <i class="fas fa-shield-halved"></i>
+                    Restricted area — authorized personnel only
                 </div>
+            </aside>
 
-                <div class="form-options">
-                    <div class="remember-me">
-                        <input class="form-check-input" type="checkbox" id="rememberMe" name="rememberMe">
-                        <label class="form-check-label" for="rememberMe">
-                            Remember me
-                        </label>
+            <main class="wf-card-right">
+                <div class="wf-form-container">
+
+                    <div class="wf-form-header">
+                        <span class="wf-eyebrow">
+                            <i class="fas fa-lock"></i> Secure Sign In
+                        </span>
+                        <h2>Admin Portal</h2>
+                        <p>Enter your credentials to access the dashboard.</p>
                     </div>
-                    <a href="#" class="forgot-password">Forgot Password?</a>
+
+                    <?php if ($error_message): ?>
+                    <div class="wf-alert wf-alert-danger">
+                        <i class="fas fa-exclamation-circle"></i>
+                        <div><?= e($error_message) ?></div>
+                    </div>
+                    <?php endif; ?>
+
+                    <?php if (isset($_GET['timeout'])): ?>
+                    <div class="wf-alert wf-alert-warning">
+                        <i class="fas fa-clock"></i>
+                        <div>Your session expired. Please sign in again.</div>
+                    </div>
+                    <?php endif; ?>
+
+                    <form id="wfAdminForm" method="POST" action="admin_login.php" novalidate autocomplete="off">
+                        <?= csrf_field() ?>
+
+                        <div class="wf-form-group">
+                            <label class="wf-form-label" for="wfUsername">Username</label>
+                            <div class="wf-input-wrap">
+                                <i class="fas fa-user-shield wf-input-icon"></i>
+                                <input type="text" class="wf-form-control" id="wfUsername" name="username"
+                                       placeholder="Enter admin username"
+                                       value="<?= e($username_value) ?>"
+                                       autocomplete="off" required>
+                            </div>
+                        </div>
+
+                        <div class="wf-form-group">
+                            <label class="wf-form-label" for="wfPassword">Password</label>
+                            <div class="wf-input-wrap">
+                                <i class="fas fa-lock wf-input-icon"></i>
+                                <input type="password" class="wf-form-control" id="wfPassword" name="password"
+                                       placeholder="Enter your password"
+                                       autocomplete="new-password" required>
+                                <i class="fas fa-eye wf-password-toggle" id="wfTogglePassword"></i>
+                            </div>
+                        </div>
+
+                        <div class="wf-form-options">
+                            <label class="wf-remember">
+                                <input type="checkbox" id="wfRememberMe" name="rememberMe">
+                                <span>Remember this device</span>
+                            </label>
+                            <a href="#" class="wf-forgot">Need help?</a>
+                        </div>
+
+                        <button type="submit" class="wf-btn-primary" id="wfLoginBtn">
+                            <span class="wf-btn-text">
+                                <i class="fas fa-shield-alt"></i> Sign In to Dashboard
+                            </span>
+                        </button>
+                    </form>
+
+                    <div class="wf-security-footer">
+                        <i class="fas fa-lock"></i>
+                        <span>Protected by CSRF tokens, rate limiting &amp; encrypted sessions</span>
+                    </div>
+
                 </div>
+            </main>
 
-                <button type="submit" class="btn btn-login" id="loginBtn">
-                    <span class="spinner"></span>
-                    <span class="btn-text"><i class="fas fa-sign-in-alt me-2"></i>Login to Dashboard</span>
-                </button>
-            </form>
-
-            <div class="back-link">
-                <i class="fas fa-arrow-left me-1"></i>
-                <a href="login.php">Back to Customer Login</a>
-            </div>
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // Password Toggle
-        const togglePassword = document.getElementById('togglePassword');
-        const password = document.getElementById('passwordInput');
+        (function() {
+            const togglePassword = document.getElementById('wfTogglePassword');
+            const password = document.getElementById('wfPassword');
+            const form = document.getElementById('wfAdminForm');
+            const loginBtn = document.getElementById('wfLoginBtn');
+            const rememberMe = document.getElementById('wfRememberMe');
+            const usernameInput = document.getElementById('wfUsername');
 
-        togglePassword.addEventListener('click', function() {
-            const type = password.getAttribute('type') === 'password' ? 'text' : 'password';
-            password.setAttribute('type', type);
-            this.classList.toggle('fa-eye');
-            this.classList.toggle('fa-eye-slash');
-        });
+            togglePassword.addEventListener('click', function() {
+                const type = password.getAttribute('type') === 'password' ? 'text' : 'password';
+                password.setAttribute('type', type);
+                this.classList.toggle('fa-eye');
+                this.classList.toggle('fa-eye-slash');
+            });
 
-        // Form Submission with loading state
-        document.getElementById('adminLoginForm').addEventListener('submit', function() {
-            const btn = document.getElementById('loginBtn');
-            btn.disabled = true;
-            btn.classList.add('loading');
-        });
+            form.addEventListener('submit', function(e) {
+                if (!usernameInput.validity.valid || !password.validity.valid) {
+                    e.preventDefault();
+                    if (!usernameInput.validity.valid) usernameInput.style.borderColor = '#dc3545';
+                    if (!password.validity.valid) password.style.borderColor = '#dc3545';
+                    return false;
+                }
+                loginBtn.disabled = true;
+                loginBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Authenticating...';
+            });
 
-        // Remember Me functionality
-        const rememberMe = document.getElementById('rememberMe');
-        const usernameInput = document.getElementById('usernameInput');
+            usernameInput.addEventListener('input', () => usernameInput.style.borderColor = '');
+            password.addEventListener('input', () => password.style.borderColor = '');
 
-        document.getElementById('adminLoginForm').addEventListener('submit', function() {
-            if (rememberMe.checked) {
-                localStorage.setItem('adminUsername', usernameInput.value);
-            } else {
-                localStorage.removeItem('adminUsername');
-            }
-        });
+            form.addEventListener('submit', function() {
+                if (rememberMe.checked) {
+                    localStorage.setItem('wf_admin_username', usernameInput.value);
+                } else {
+                    localStorage.removeItem('wf_admin_username');
+                }
+            });
 
-        // Restore remembered username
-        document.addEventListener('DOMContentLoaded', () => {
-            const saved = localStorage.getItem('adminUsername');
-            if (saved) {
-                usernameInput.value = saved;
-                rememberMe.checked = true;
-            }
-        });
+            document.addEventListener('DOMContentLoaded', () => {
+                const saved = localStorage.getItem('wf_admin_username');
+                if (saved && !usernameInput.value) {
+                    usernameInput.value = saved;
+                    rememberMe.checked = true;
+                }
+            });
+        })();
     </script>
 </body>
-</html>
+</html>s

@@ -1,938 +1,925 @@
-<?php include 'db_connect.php'; ?>
+<?php
+/**
+ * homepage.php
+ * WashFlow — Laundry Management and Booking System
+ *
+ * Final homepage. Clear navigation, hindi confusing.
+ */
+
+session_start();
+$currentYear = date('Y');
+
+// OPTIONAL: I-redirect ang naka-login na user sa tamang dashboard.
+// I-uncomment kapag handa na ang login system.
+/*
+if (isset($_SESSION['user_id']) && isset($_SESSION['role'])) {
+    if ($_SESSION['role'] === 'admin' || $_SESSION['role'] === 'staff') {
+        header('Location: dashboard.php');
+        exit;
+    } elseif ($_SESSION['role'] === 'customer') {
+        header('Location: userdashboard.php');
+        exit;
+    }
+}
+*/
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MangTV Laundry Shop - Fresh Clothes, Hassle-Free Life</title>
+    <title>WashFlow — Laundry Management and Booking System</title>
+
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
     <style>
         :root {
-            --light-blue: #A8E8F9;
-            --dark-blue: #00537A;
-            --yellow: #FFF35B;
+            --dark-blue:       #063452;
+            --dark-blue-deep:  #042640;
+            --primary:         #005A85;
+            --primary-mid:     #0076A8;
+            --light-blue:      #A8E8F9;
+            --light-blue-soft: #E8F6FC;
+            --light-blue-pale: #F2FAFD;
+
+            --yellow:          #FFD93D;
+            --yellow-soft:     #FFF9DB;
+            --yellow-dark:     #B88A00;
+
+            --bg-light:        #E5EEF5;
+            --bg-white:        #FFFFFF;
+
+            --text-primary:    #0A2540;
+            --text-secondary:  #5A7184;
+            --text-muted:      #94A9B8;
+
+            --border:          #C9DCE8;
+            --border-light:    #DCEAF3;
+
+            --shadow-sm: 0 1px 2px rgba(10, 37, 64, 0.04);
+            --shadow-md: 0 4px 12px rgba(10, 37, 64, 0.06);
+            --shadow-lg: 0 12px 32px rgba(10, 37, 64, 0.08);
+            --shadow-xl: 0 24px 48px rgba(10, 37, 64, 0.12);
+            --shadow-yellow: 0 6px 16px rgba(255, 217, 61, 0.4);
         }
-        
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        html { scroll-behavior: smooth; }
+
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            color: var(--text-primary);
+            background-color: var(--bg-light);
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
             overflow-x: hidden;
         }
-        
-        /* Navigation */
-        .navbar {
-            background: linear-gradient(135deg, var(--dark-blue) 0%, #006b99 100%);
-            padding: 1rem 0;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }
-        
-        .navbar-brand {
-            font-weight: bold;
-            font-size: 1.5rem;
-            color: var(--yellow) !important;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
-        }
-        
-       .nav-link {
-    color: white !important;
-    margin: 0 0.5rem;
-    transition: all 0.3s;
-    position: relative;
-}
 
-.nav-link:hover {
-    color: var(--yellow) !important;
-    transform: translateY(-2px);
-}
+        h1, h2, h3, h4, h5 { font-weight: 700; letter-spacing: -0.02em; color: var(--text-primary); }
+        a { text-decoration: none; }
 
-.nav-link.active {
-    color: var(--yellow) !important;
-}
-
-.nav-link.active::after {
-    width: 80% !important;
-}
-        
-       .btn-register {
-    background-color: var(--yellow);
-    color: var(--dark-blue);
-    font-weight: bold;
-    border: none;
-    padding: 0.5rem 1.5rem;
-    border-radius: 25px;
-    transition: all 0.3s;
-    cursor: pointer;
-    text-decoration: none;
-    display: inline-block;
-}
-
-.btn-register:hover {
-    background-color: #fff94a;
-    transform: scale(1.05);
-    box-shadow: 0 5px 15px rgba(255,243,91,0.4);
-    color: var(--dark-blue);
-}
-        
-        /* Hero Section */
-        .hero {
-            background: linear-gradient(135deg, rgba(0,83,122,0.9) 0%, rgba(0,107,153,0.85) 100%),
-                        url('https://images.unsplash.com/photo-1517677208171-0bc6725a3e60?w=1600') center/cover;
-            min-height: 90vh;
-            display: flex;
-            align-items: center;
-            color: white;
-            position: relative;
-            overflow: hidden;
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
         }
-        
-        .hero::before {
-            content: '';
-            position: absolute;
-            top: -50%;
-            right: -10%;
-            width: 600px;
-            height: 600px;
-            background: radial-gradient(circle, rgba(168,232,249,0.2) 0%, transparent 70%);
-            border-radius: 50%;
-            animation: float 6s ease-in-out infinite;
+        @keyframes slideInLeft {
+            from { opacity: 0; transform: translateX(-40px); }
+            to { opacity: 1; transform: translateX(0); }
         }
-        
         @keyframes float {
             0%, 100% { transform: translateY(0) rotate(0deg); }
-            50% { transform: translateY(-30px) rotate(5deg); }
+            50% { transform: translateY(-20px) rotate(3deg); }
         }
-        
-        @keyframes sparkle {
-        0%, 100% { transform: scale(1) rotate(0deg); }
-        50% { transform: scale(1.2) rotate(180deg); }
-    }
+        @keyframes pulseGlow {
+            0%, 100% { opacity: 0.6; }
+            50% { opacity: 1; }
+        }
 
-        .hero-content {
-            position: relative;
-            z-index: 2;
-        }
-        
-        .hero h1 {
-            font-size: 3.5rem;
-            font-weight: bold;
-            margin-bottom: 1rem;
-            text-shadow: 3px 3px 6px rgba(0,0,0,0.3);
-            animation: slideInLeft 1s ease-out;
-        }
-        
-        @keyframes slideInLeft {
-            from {
-                opacity: 0;
-                transform: translateX(-50px);
-            }
-            to {
-                opacity: 1;
-                transform: translateX(0);
-            }
-        }
-        
-        .hero .tagline {
-            font-size: 2rem;
-            color: var(--light-blue);
-            margin-bottom: 0.5rem;
-            animation: slideInLeft 1s ease-out 0.2s both;
-        }
-        
-        .hero .sub-tagline {
-            font-size: 1.2rem;
-            margin-bottom: 2rem;
-            opacity: 0.95;
-            animation: slideInLeft 1s ease-out 0.4s both;
-        }
-        
-        .hero-buttons .btn {
-    margin: 0.5rem;
-    padding: 0.8rem 2.5rem;
-    font-size: 1.1rem;
-    border-radius: 30px;
-    transition: all 0.3s;
-    animation: slideInUp 1s ease-out 0.6s both;
-    position: relative;
-}
+        .anim-fade-up { animation: fadeInUp 0.7s ease-out both; }
+        .anim-slide-left { animation: slideInLeft 0.7s ease-out both; }
+        .anim-delay-1 { animation-delay: 0.1s; }
+        .anim-delay-2 { animation-delay: 0.2s; }
+        .anim-delay-3 { animation-delay: 0.3s; }
 
-.hero-buttons .btn.highlight-pulse {
-    animation: highlightPulse 1.5s ease-in-out 3;
-}
+        /* LOGO */
+        .wf-logo { display: flex; align-items: center; gap: 12px; text-decoration: none; }
+        .wf-logo-mark { width: 40px; height: 40px; flex-shrink: 0; }
+        .wf-logo-mark svg { width: 100%; height: 100%; filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.2)); }
+        .wf-logo-text { display: flex; flex-direction: column; line-height: 1; }
+        .wf-logo-name { font-size: 1.35rem; font-weight: 800; color: white; letter-spacing: -0.04em; line-height: 1; }
+        .wf-logo-name .flow { color: var(--yellow); }
+        .wf-logo-tagline { font-size: 0.6rem; font-weight: 500; color: rgba(168, 232, 249, 0.7); letter-spacing: 0.15em; text-transform: uppercase; margin-top: 3px; }
 
-@keyframes highlightPulse {
-    0%, 100% {
-        transform: scale(1);
-        box-shadow: 0 0 0 0 rgba(255, 243, 91, 0.7);
-    }
-    50% {
-        transform: scale(1.1);
-        box-shadow: 0 0 30px 15px rgba(255, 243, 91, 0);
-    }
-}
-        
-        @keyframes slideInUp {
-            from {
-                opacity: 0;
-                transform: translateY(30px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
+        /* NAVBAR */
+        .wf-navbar {
+            background: var(--dark-blue-deep);
+            border-bottom: 1px solid rgba(168, 232, 249, 0.1);
+            padding: 0.75rem 0;
+            box-shadow: 0 4px 20px rgba(4, 38, 64, 0.3);
         }
-        
-        .btn-primary-custom {
-            background-color: var(--yellow);
-            color: var(--dark-blue);
-            font-weight: bold;
-            border: none;
-        }
-        
-        .btn-primary-custom:hover {
-            background-color: #fff94a;
-            transform: translateY(-3px);
-            box-shadow: 0 8px 20px rgba(255,243,91,0.4);
-        }
-        
-        .btn-outline-custom {
-            border: 2px solid white;
-            color: white;
-            font-weight: bold;
-        }
-        
-        .btn-outline-custom:hover {
-            background-color: white;
-            color: var(--dark-blue);
-            transform: translateY(-3px);
-            box-shadow: 0 8px 20px rgba(255,255,255,0.3);
-        }
-        
-        /* About Section */
-        .about {
-            padding: 5rem 0;
-            background: linear-gradient(180deg, white 0%, var(--light-blue) 100%);
-        }
-        
-        .image-grid-about {
-            position: relative;
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 20px;
-            max-width: 520px;
-        }
-        
-        .image-box-about {
-            border-radius: 20px;
-            overflow: hidden;
-            box-shadow: 0 15px 40px rgba(0,0,0,0.12);
-            position: relative;
-            transition: transform 0.3s ease, box-shadow 0.3s ease;
-        }
-        
-        .image-box-about:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 20px 50px rgba(0,0,0,0.18);
-        }
-        
-        .image-box-about img {
-            width: 100%;
-            height: 280px;
-            object-fit: cover;
-            display: block;
-        }
-        
-        .image-box-about.large {
-            grid-row: span 2;
-        }
-        
-        .image-box-about.large img {
-            height: 100%;
-            min-height: 580px;
-        }
-        
-        .sparkle-icon-about {
-            position: absolute;
-            color: var(--yellow);
-            font-size: 2.5rem;
-            top: -40px;
-            left: 30px;
-            animation: float 3s ease-in-out infinite;
-            z-index: 5;
-        }
-        
-        .book-now-card-about {
-            position: absolute;
-            bottom: -40px;
-            right: -40px;
-            background: linear-gradient(135deg, var(--dark-blue) 0%, #006992 100%);
-            color: white;
-            padding: 30px 40px;
-            border-radius: 20px;
-            box-shadow: 0 20px 50px rgba(0,83,122,0.35);
-            text-align: center;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            z-index: 10;
-        }
-        
-        .book-now-card-about:hover {
-            transform: translateY(-8px) scale(1.02);
-            box-shadow: 0 25px 60px rgba(0,83,122,0.45);
-        }
-        
-        .book-now-card-about i {
-            font-size: 2.2rem;
-            margin-bottom: 12px;
-            display: block;
-        }
-        
-        .book-now-card-about h5 {
-            margin: 0;
-            font-weight: bold;
-            font-size: 1.2rem;
-            letter-spacing: 1px;
-        }
-        
-        .book-now-card-about p {
-            margin: 8px 0 0 0;
-            font-size: 0.88rem;
-            opacity: 0.95;
-            line-height: 1.4;
-        }
-        
-        .content-section-about {
-            padding: 20px 0;
-        }
-        
-        .badge-custom-about {
-            background-color: var(--yellow);
-            color: var(--dark-blue);
-            padding: 10px 25px;
-            border-radius: 30px;
-            font-size: 0.8rem;
-            font-weight: 700;
-            letter-spacing: 1.5px;
-            display: inline-block;
-            margin-bottom: 25px;
-            box-shadow: 0 5px 15px rgba(255,243,91,0.3);
-        }
-        
-        .main-heading-about {
-            font-size: 2.5rem;
-            font-weight: 800;
-            color: var(--dark-blue);
-            line-height: 1.2;
-            margin-bottom: 25px;
-        }
-        
-        .description-text-about {
-            color: #6c757d;
-            font-size: 1.05rem;
-            line-height: 1.7;
-            margin-bottom: 40px;
-        }
-        
-        .feature-item-about {
-            display: flex;
-            align-items: flex-start;
-            margin-bottom: 30px;
-            padding: 20px;
-            background: white;
-            border-radius: 15px;
-            transition: all 0.3s ease;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.05);
-        }
-        
-        .feature-item-about:hover {
-            transform: translateX(10px);
-            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
-        }
-        
-        .feature-icon-about {
-            width: 60px;
-            height: 60px;
-            background: linear-gradient(135deg, var(--yellow) 0%, #ffe082 100%);
-            border-radius: 15px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin-right: 25px;
-            flex-shrink: 0;
-            box-shadow: 0 8px 20px rgba(255,243,91,0.3);
-        }
-        
-        .feature-icon-about i {
-            color: var(--dark-blue);
-            font-size: 1.5rem;
-        }
-        
-        .feature-content-about h4 {
-            font-size: 1.3rem;
-            font-weight: 700;
-            margin-bottom: 12px;
-            color: var(--dark-blue);
-        }
-        
-        .feature-content-about p {
-            color: #6c757d;
-            font-size: 0.95rem;
-            line-height: 1.7;
-            margin: 0;
-        }
-        
-        /* Services Section */
-        .services {
-            padding: 5rem 0;
-            background: white;
+
+        .wf-navbar .nav-link {
+            color: rgba(255, 255, 255, 0.85) !important;
+            font-weight: 600;
+            font-size: 0.9rem;
+            padding: 0.55rem 1rem !important;
+            border-radius: 50px;
+            transition: all 0.25s;
+            background: transparent;
             position: relative;
         }
-        
-        .section-title {
-            font-size: 2.5rem;
-            font-weight: bold;
-            color: var(--dark-blue);
-            margin-bottom: 3rem;
-            position: relative;
-            display: inline-block;
-        }
-        
-        .section-title::after {
+        .wf-navbar .nav-link:hover { color: var(--yellow) !important; background: rgba(255, 217, 61, 0.08); }
+        .wf-navbar .nav-link.active { color: var(--yellow) !important; background: rgba(255, 217, 61, 0.12); }
+        .wf-navbar .nav-link.active::after {
             content: '';
             position: absolute;
-            bottom: -10px;
+            bottom: 2px;
             left: 50%;
             transform: translateX(-50%);
-            width: 100px;
-            height: 4px;
-            background: linear-gradient(90deg, var(--dark-blue) 0%, var(--yellow) 100%);
+            width: 20px;
+            height: 2px;
+            background: var(--yellow);
             border-radius: 2px;
         }
-        
-        .services-badge {
-            background: var(--yellow);
-            color: var(--dark-blue);
-            padding: 0.75rem 2rem;
-            border-radius: 50px;
+
+        .wf-btn-nav-outline {
+            color: white;
             font-weight: 600;
-            display: inline-block;
-            margin-bottom: 2rem;
-            font-size: 0.85rem;
-            text-transform: uppercase;
-            letter-spacing: 2px;
-            box-shadow: 0 8px 20px rgba(255, 243, 91, 0.3);
-            animation: fadeInDown 0.8s ease-out;
+            font-size: 0.875rem;
+            padding: 0.55rem 1.5rem;
+            border: 1.5px solid rgba(255, 255, 255, 0.4);
+            border-radius: 50px;
+            background: transparent;
+            transition: all 0.25s;
         }
-        
-        .services-title {
-            font-size: 2.5rem;
+        .wf-btn-nav-outline:hover {
+            border-color: white;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            transform: translateY(-1px);
+        }
+
+        .wf-btn-nav-solid {
+            background: var(--yellow);
+            color: var(--dark-blue-deep);
             font-weight: 700;
-            color: var(--dark-blue);
-            line-height: 1.2;
-            margin-bottom: 1.5rem;
+            font-size: 0.875rem;
+            padding: 0.55rem 1.75rem;
+            border: 1.5px solid var(--yellow);
+            border-radius: 50px;
+            transition: all 0.25s;
+            box-shadow: 0 4px 12px rgba(255, 217, 61, 0.3);
         }
-        
-        .services-subtitle {
-            font-size: 1.1rem;
-            color: #6c757d;
-            font-weight: 300;
-            margin-bottom: 0;
+        .wf-btn-nav-solid:hover {
+            background: #FFE066;
+            border-color: #FFE066;
+            color: var(--dark-blue-deep);
+            transform: translateY(-1px);
+            box-shadow: 0 8px 20px rgba(255, 217, 61, 0.5);
         }
-        
-        .service-card-new {
-            border: none;
-            border-radius: 20px;
-            overflow: hidden;
-            background: white;
-            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.08);
-            transition: all 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
-            height: 100%;
+
+        /* HERO */
+        .wf-hero {
             position: relative;
+            min-height: 88vh;
+            display: flex;
+            align-items: center;
+            background: linear-gradient(135deg, rgba(2, 25, 45, 0.96) 0%, rgba(4, 38, 64, 0.92) 50%, rgba(6, 52, 82, 0.85) 100%),
+                        url('https://images.unsplash.com/photo-1545173168-9f1947eebb7f?w=1600') center/cover;
+            color: white;
+            overflow: hidden;
         }
-        
-        .service-card-new::before {
+
+        .wf-hero::before {
             content: '';
             position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0) 100%);
-            opacity: 0;
-            transition: opacity 0.4s ease;
+            top: -200px;
+            right: -200px;
+            width: 700px;
+            height: 700px;
+            background: radial-gradient(circle, rgba(255, 217, 61, 0.12) 0%, transparent 70%);
+            border-radius: 50%;
             pointer-events: none;
-            z-index: 1;
+            animation: pulseGlow 6s ease-in-out infinite;
         }
-        
-        .service-card-new:hover {
-            transform: translateY(-15px);
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+        .wf-hero::after {
+            content: '';
+            position: absolute;
+            bottom: -200px;
+            left: -200px;
+            width: 600px;
+            height: 600px;
+            background: radial-gradient(circle, rgba(168, 232, 249, 0.08) 0%, transparent 70%);
+            border-radius: 50%;
+            pointer-events: none;
         }
-        
-        .service-card-new:hover::before {
-            opacity: 1;
+
+        .wf-shape { position: absolute; border-radius: 50%; pointer-events: none; opacity: 0.08; z-index: 1; }
+        .wf-shape-1 { width: 200px; height: 200px; background: var(--yellow); top: 15%; right: 8%; animation: float 8s ease-in-out infinite; }
+        .wf-shape-2 { width: 120px; height: 120px; background: var(--light-blue); bottom: 20%; left: 5%; animation: float 10s ease-in-out infinite reverse; }
+
+        .wf-hero-content { position: relative; z-index: 2; max-width: 680px; }
+        .wf-hero h1 {
+            font-size: 4rem;
+            font-weight: 800;
+            color: white;
+            letter-spacing: -0.045em;
+            line-height: 1.02;
+            margin-bottom: 1.25rem;
+            text-shadow: 0 4px 30px rgba(0, 0, 0, 0.4);
         }
-        
-        .image-container-service {
+        .wf-hero h1 .accent { color: var(--yellow); position: relative; display: inline-block; }
+        .wf-hero h1 .accent::after {
+            content: '';
+            position: absolute;
+            bottom: 8px;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: rgba(255, 217, 61, 0.35);
+            border-radius: 2px;
+            z-index: -1;
+        }
+        .wf-hero .tagline { font-size: 1.75rem; color: var(--light-blue); font-weight: 600; margin-bottom: 0.875rem; letter-spacing: -0.01em; }
+        .wf-hero .sub-tagline { font-size: 1.15rem; color: rgba(255, 255, 255, 0.88); margin-bottom: 2.25rem; line-height: 1.7; max-width: 560px; }
+
+        .wf-hero-buttons { display: flex; gap: 1rem; flex-wrap: wrap; }
+
+        .wf-btn-hero-primary {
+            background: var(--yellow);
+            color: var(--dark-blue-deep);
+            font-weight: 700;
+            font-size: 1rem;
+            padding: 1rem 2.75rem;
+            border-radius: 50px;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: all 0.3s;
+            border: none;
+            box-shadow: 0 8px 24px rgba(255, 217, 61, 0.45);
             position: relative;
-            height: 280px;
             overflow: hidden;
         }
-        
-        .image-container-service::after {
+        .wf-btn-hero-primary::before {
             content: '';
             position: absolute;
             top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: linear-gradient(to bottom, transparent 0%, rgba(0,0,0,0.4) 100%);
-            transition: opacity 0.4s ease;
-        }
-        
-        .service-card-new:hover .image-container-service::after {
-            opacity: 0.7;
-        }
-        
-        .service-card-new:nth-child(1) .image-container-service {
-            background: linear-gradient(135deg, var(--dark-blue) 0%, #006b99 100%);
-        }
-        
-        .service-card-new:nth-child(2) .image-container-service {
-            background: linear-gradient(135deg, #A8E8F9 0%, var(--light-blue) 100%);
-        }
-        
-        .service-card-new:nth-child(3) .image-container-service {
-            background: linear-gradient(135deg, var(--yellow) 0%, #ffe082 100%);
-        }
-        
-        .service-card-new img {
+            left: -100%;
             width: 100%;
             height: 100%;
-            object-fit: cover;
-            transition: transform 0.6s cubic-bezier(0.165, 0.84, 0.44, 1);
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+            transition: left 0.5s;
         }
-        
-        .service-card-new:hover img {
-            transform: scale(1.1);
+        .wf-btn-hero-primary:hover::before { left: 100%; }
+        .wf-btn-hero-primary:hover {
+            background: #FFE066;
+            color: var(--dark-blue-deep);
+            transform: translateY(-3px);
+            box-shadow: 0 14px 32px rgba(255, 217, 61, 0.6);
         }
-        
-        .icon-badge-service {
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            background: white;
-            width: 60px;
-            height: 60px;
-            border-radius: 50%;
-            display: flex;
+
+        .wf-btn-hero-outline {
+            background: transparent;
+            color: white;
+            font-weight: 600;
+            font-size: 1rem;
+            padding: 1rem 2.75rem;
+            border: 2px solid rgba(255, 255, 255, 0.6);
+            border-radius: 50px;
+            display: inline-flex;
             align-items: center;
-            justify-content: center;
-            font-size: 1.5rem;
-            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.2);
-            z-index: 2;
-            transition: all 0.3s ease;
+            gap: 0.5rem;
+            transition: all 0.3s;
         }
-        
-        .service-card-new:hover .icon-badge-service {
-            transform: rotate(360deg) scale(1.1);
+        .wf-btn-hero-outline:hover {
+            background: white;
+            color: var(--dark-blue-deep);
+            border-color: white;
+            transform: translateY(-3px);
+            box-shadow: 0 14px 32px rgba(255, 255, 255, 0.25);
         }
-        
-        .service-card-new:nth-child(1) .icon-badge-service {
+
+        /* SECTIONS */
+        .wf-section { padding: 5.5rem 0; }
+        .wf-section-header { text-align: center; max-width: 660px; margin: 0 auto 3.5rem; }
+
+        .wf-section-label {
+            display: inline-block;
             color: var(--dark-blue);
+            font-size: 0.75rem;
+            font-weight: 700;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            margin-bottom: 1rem;
+            position: relative;
+            padding: 0 2.5rem;
         }
-        
-        .service-card-new:nth-child(2) .icon-badge-service {
-            color: var(--light-blue);
+        .wf-section-label::before, .wf-section-label::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            width: 1.5rem;
+            height: 1px;
+            background: var(--dark-blue);
+            opacity: 0.4;
         }
-        
-        .service-card-new:nth-child(3) .icon-badge-service {
-            color: var(--yellow);
+        .wf-section-label::before { left: 0; }
+        .wf-section-label::after { right: 0; }
+
+        .wf-section-title { font-size: 2.5rem; font-weight: 800; color: var(--dark-blue); letter-spacing: -0.035em; line-height: 1.15; margin-bottom: 0.875rem; }
+        .wf-section-subtitle { font-size: 1.05rem; color: var(--text-secondary); line-height: 1.7; margin: 0; }
+
+        /* ABOUT */
+        .wf-about {
+            background: linear-gradient(180deg, #EAF2F8 0%, #F0F5F9 100%);
+            border-bottom: 1px solid rgba(10, 37, 64, 0.06);
         }
-        
-        .service-card-body-new {
-            padding: 2.5rem;
+
+        .wf-about-images {
+            position: relative;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: 220px 220px;
+            gap: 18px;
+            max-width: 100%;
+        }
+
+        .wf-about-image {
+            border-radius: 18px;
+            overflow: hidden;
+            box-shadow: 0 12px 28px rgba(10, 74, 107, 0.12);
+            transition: all 0.4s;
             position: relative;
         }
-        
-        .service-number {
+        .wf-about-image::after {
+            content: '';
             position: absolute;
-            top: -30px;
-            left: 30px;
-            background: var(--yellow);
-            width: 60px;
-            height: 60px;
-            border-radius: 50%;
+            inset: 0;
+            background: linear-gradient(135deg, rgba(0, 107, 153, 0.15) 0%, transparent 60%);
+            opacity: 0;
+            transition: opacity 0.4s;
+            pointer-events: none;
+        }
+        .wf-about-image:hover::after { opacity: 1; }
+        .wf-about-image:hover { transform: translateY(-8px) scale(1.02); box-shadow: 0 24px 48px rgba(10, 74, 107, 0.2); }
+        .wf-about-image img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform 0.5s; }
+        .wf-about-image:hover img { transform: scale(1.05); }
+        .wf-about-image:nth-child(1) { grid-row: span 2; }
+
+        .wf-about-content h2 { font-size: 2.25rem; font-weight: 800; color: var(--dark-blue); letter-spacing: -0.035em; line-height: 1.2; margin-bottom: 1rem; }
+        .wf-about-content .lead { font-size: 1.05rem; color: var(--text-secondary); line-height: 1.75; margin-bottom: 2rem; }
+
+        .wf-feature-list { display: flex; flex-direction: column; gap: 1rem; }
+
+        .wf-feature-card {
             display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.5rem;
-            font-weight: 700;
-            color: var(--dark-blue);
-            box-shadow: 0 5px 20px rgba(255, 243, 91, 0.4);
-        }
-        
-        .service-title-new {
-            font-size: 1.75rem;
-            font-weight: 700;
-            margin-bottom: 1rem;
-            color: var(--dark-blue);
-            margin-top: 1.5rem;
-        }
-        
-        .service-description-new {
-            color: #6c757d;
-            line-height: 1.8;
-            font-size: 1rem;
-            font-weight: 300;
-        }
-        
-        .decorative-shape {
-            position: absolute;
-            z-index: 0;
-            opacity: 0.05;
-        }
-        
-        .shape-1 {
-            top: 10%;
-            left: 5%;
-            width: 100px;
-            height: 100px;
-            background: linear-gradient(135deg, var(--dark-blue) 0%, #006b99 100%);
-            border-radius: 30% 70% 70% 30% / 30% 30% 70% 70%;
-            animation: float 6s ease-in-out infinite;
-        }
-        
-        .shape-2 {
-            bottom: 20%;
-            right: 5%;
-            width: 150px;
-            height: 150px;
-            background: linear-gradient(135deg, var(--light-blue) 0%, var(--yellow) 100%);
-            border-radius: 60% 40% 30% 70% / 60% 30% 70% 40%;
-            animation: float 8s ease-in-out infinite;
-        }
-        
-        .fade-in-card {
-            animation: fadeInUp 0.8s ease-out both;
-        }
-        
-        .fade-in-card:nth-child(1) {
-            animation-delay: 0.1s;
-        }
-        
-        .fade-in-card:nth-child(2) {
-            animation-delay: 0.3s;
-        }
-        
-        .fade-in-card:nth-child(3) {
-            animation-delay: 0.5s;
-        }
-        
-        .service-card {
-            background: linear-gradient(135deg, var(--light-blue) 0%, white 100%);
-            border: none;
-            border-radius: 20px;
-            padding: 2rem;
+            align-items: flex-start;
+            gap: 1.25rem;
+            background: var(--bg-white);
+            border: 1px solid rgba(10, 37, 64, 0.06);
+            border-radius: 16px;
+            padding: 1.5rem 1.625rem;
             transition: all 0.3s;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.08);
-            height: 100%;
+            position: relative;
+            box-shadow: 0 4px 12px rgba(10, 74, 107, 0.06);
         }
-        
-        .service-card:hover {
-            transform: scale(1.05);
-            box-shadow: 0 10px 30px rgba(0,83,122,0.15);
-        }
-        
-        .service-icon {
-            font-size: 3.5rem;
-            color: var(--dark-blue);
-            margin-bottom: 1.5rem;
-        }
-        
-        /* Pricing Section */
-        .pricing {
-            padding: 5rem 0;
-            background: linear-gradient(180deg, var(--light-blue) 0%, white 100%);
-        }
-        
-        .price-card {
-            background: white;
-            border-radius: 20px;
-            padding: 2.5rem;
-            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
-            transition: all 0.3s;
-            height: 100%;
-        }
-        
-        .price-card:hover {
-            transform: translateY(-10px);
-            box-shadow: 0 15px 40px rgba(0,83,122,0.2);
-        }
-        
-        .price-card.featured {
-            background: linear-gradient(135deg, var(--dark-blue) 0%, #006b99 100%);
-            color: white;
-            transform: scale(1.05);
-        }
-        
-        .price-card.featured .price {
-            color: var(--yellow);
-        }
-        
-        .price {
-            font-size: 3rem;
-            font-weight: bold;
-            color: var(--dark-blue);
-            margin: 1rem 0;
-        }
-        
-        
-        /* FAQ Section - NEW DESIGN */
-        .faq {
-            padding: 5rem 0;
-            background: white;
-        }
-
-        @keyframes sparkle {
-            0%, 100% { transform: scale(1) rotate(0deg); }
-            50% { transform: scale(1.2) rotate(180deg); }
-        }
-        
-        .accordion-button {
-            background-color: var(--light-blue);
-            color: var(--dark-blue);
-            font-weight: 600;
-            transition: all 0.3s ease;
-            padding: 20px 25px;
-            font-size: 1.1rem;
-            border-radius: 15px;
-        }
-        
-        .accordion-button:hover {
-            background-color: #90dff5;
-            transform: translateX(5px);
-        }
-        
-        .accordion-button:not(.collapsed) {
-            background-color: var(--dark-blue);
-            color: white;
-        }
-        
-        .accordion-button:focus {
-            box-shadow: 0 0 0 0.25rem rgba(0,83,122,0.25);
-        }
-
-        .accordion-item {
-            border: none;
-            border-radius: 15px;
-            margin-bottom: 15px;
-            overflow: hidden;
-            box-shadow: 0 3px 10px rgba(0,0,0,0.08);
-            transition: all 0.3s;
-        }
-        
-        .accordion-item:hover {
-            box-shadow: 0 5px 20px rgba(0,0,0,0.15) !important;
+        .wf-feature-card:hover {
+            border-color: var(--light-blue);
+            box-shadow: 0 16px 32px rgba(10, 74, 107, 0.12);
             transform: translateY(-3px);
         }
 
-        .section-title {
-            font-size: 2.5rem;
-            font-weight: bold;
+        .wf-feature-card-icon {
+            width: 54px;
+            height: 54px;
+            background: linear-gradient(135deg, var(--yellow) 0%, #FFE066 100%);
             color: var(--dark-blue);
-            margin-bottom: 1rem;
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.25rem;
+            flex-shrink: 0;
+            box-shadow: 0 6px 14px rgba(255, 217, 61, 0.4);
+            transition: transform 0.3s;
+        }
+        .wf-feature-card:hover .wf-feature-card-icon { transform: scale(1.08) rotate(-5deg); box-shadow: 0 8px 20px rgba(255, 217, 61, 0.55); }
+
+        .wf-feature-card-content { flex: 1; min-width: 0; }
+        .wf-feature-card h4 { font-size: 1.1rem; font-weight: 700; color: var(--dark-blue); margin-bottom: 0.4rem; letter-spacing: -0.015em; }
+        .wf-feature-card p { font-size: 0.9rem; color: var(--text-secondary); margin: 0; line-height: 1.6; }
+
+        /* SERVICES */
+        .wf-services {
+            background: linear-gradient(180deg, #CFE3EF 0%, #C1DAE9 100%);
             position: relative;
+            overflow: hidden;
+        }
+        .wf-services::before {
+            content: '';
+            position: absolute;
+            top: 10%;
+            right: -100px;
+            width: 300px;
+            height: 300px;
+            background: radial-gradient(circle, rgba(168, 232, 249, 0.5) 0%, transparent 70%);
+            border-radius: 50%;
+            pointer-events: none;
+        }
+        .wf-services::after {
+            content: '';
+            position: absolute;
+            bottom: 10%;
+            left: -100px;
+            width: 250px;
+            height: 250px;
+            background: radial-gradient(circle, rgba(255, 217, 61, 0.18) 0%, transparent 70%);
+            border-radius: 50%;
+            pointer-events: none;
+        }
+
+        .wf-service-card {
+            background: var(--bg-white);
+            border: 1px solid rgba(10, 37, 64, 0.06);
+            border-radius: 20px;
+            overflow: hidden;
+            height: 100%;
+            transition: all 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            box-shadow: 0 6px 20px rgba(10, 74, 107, 0.08);
+        }
+        .wf-service-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 5px;
+            background: linear-gradient(90deg, var(--yellow) 0%, var(--light-blue) 100%);
+            transform: scaleX(0);
+            transform-origin: left;
+            transition: transform 0.4s;
+            z-index: 3;
+        }
+        .wf-service-card:hover::before { transform: scaleX(1); }
+        .wf-service-card:hover {
+            transform: translateY(-12px);
+            box-shadow: 0 32px 64px rgba(10, 74, 107, 0.22);
+            border-color: var(--light-blue);
+        }
+
+        .wf-service-image {
+            position: relative;
+            height: 240px;
+            overflow: hidden;
+            background: linear-gradient(135deg, var(--dark-blue) 0%, var(--primary) 100%);
+        }
+        .wf-service-image img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.7s; }
+        .wf-service-card:hover .wf-service-image img { transform: scale(1.1); }
+        .wf-service-image::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(180deg, rgba(4, 38, 64, 0.15) 0%, rgba(4, 38, 64, 0.6) 100%);
+            pointer-events: none;
+        }
+
+        .wf-service-number {
+            position: absolute;
+            top: 18px;
+            left: 18px;
+            width: 48px;
+            height: 48px;
+            background: var(--yellow);
+            color: var(--dark-blue-deep);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1rem;
+            font-weight: 800;
+            box-shadow: 0 8px 20px rgba(255, 217, 61, 0.5);
+            z-index: 2;
+            transition: all 0.3s;
+        }
+        .wf-service-card:hover .wf-service-number { transform: rotate(-10deg) scale(1.12); box-shadow: 0 12px 28px rgba(255, 217, 61, 0.7); }
+
+        .wf-service-body { padding: 2rem 1.75rem 1.875rem; flex: 1; display: flex; flex-direction: column; position: relative; }
+
+        .wf-service-icon {
+            width: 56px;
+            height: 56px;
+            background: linear-gradient(135deg, var(--yellow) 0%, #FFE066 100%);
+            color: var(--dark-blue);
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.35rem;
+            margin-bottom: 1.25rem;
+            transition: all 0.3s;
+            box-shadow: 0 8px 20px rgba(255, 217, 61, 0.4);
+            margin-top: -48px;
+            position: relative;
+            z-index: 2;
+        }
+        .wf-service-card:hover .wf-service-icon { transform: scale(1.1) rotate(-8deg); box-shadow: 0 12px 28px rgba(255, 217, 61, 0.6); }
+
+        .wf-service-body h3 { font-size: 1.35rem; font-weight: 800; color: var(--dark-blue); margin-bottom: 0.625rem; letter-spacing: -0.02em; transition: color 0.3s; }
+        .wf-service-card:hover .wf-service-body h3 { color: var(--primary); }
+        .wf-service-body p { font-size: 0.925rem; color: var(--text-secondary); margin: 0; line-height: 1.65; }
+
+        /* PRICING */
+        .wf-pricing {
+            background: linear-gradient(180deg, #F0F5F9 0%, #EAF2F8 100%);
+            border-top: 1px solid rgba(10, 37, 64, 0.06);
+            border-bottom: 1px solid rgba(10, 37, 64, 0.06);
+        }
+
+        .wf-pricing-accordion .accordion-item {
+            border: 1px solid rgba(10, 37, 64, 0.06);
+            border-radius: 16px !important;
+            margin-bottom: 0.75rem;
+            overflow: hidden;
+            background: var(--bg-white);
+            transition: all 0.25s;
+            box-shadow: 0 4px 12px rgba(10, 74, 107, 0.06);
+        }
+        .wf-pricing-accordion .accordion-item:hover { border-color: var(--light-blue); box-shadow: 0 8px 20px rgba(10, 74, 107, 0.1); }
+        .wf-pricing-accordion .accordion-button {
+            background: var(--bg-white);
+            color: var(--dark-blue);
+            font-weight: 700;
+            font-size: 1rem;
+            padding: 1.25rem 1.5rem;
+            border: none;
+            box-shadow: none;
+            display: flex;
+            align-items: center;
+            gap: 0.875rem;
+        }
+        .wf-pricing-accordion .accordion-button:not(.collapsed) {
+            background: var(--bg-white);
+            color: var(--dark-blue);
+            border-bottom: 1px solid var(--border-light);
+        }
+        .wf-pricing-accordion .accordion-button:focus { box-shadow: none; }
+        .wf-pricing-accordion .accordion-button i.category-icon { color: var(--primary); font-size: 0.95rem; width: 20px; text-align: center; transition: transform 0.3s; }
+        .wf-pricing-accordion .accordion-button:not(.collapsed) i.category-icon { transform: scale(1.15); }
+        .wf-pricing-accordion .accordion-button::after { filter: invert(20%) sepia(40%) saturate(1200%) hue-rotate(180deg); opacity: 0.7; }
+        .wf-pricing-accordion .accordion-body { padding: 0; background: var(--bg-white); }
+
+        .wf-pricing-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.125rem 1.5rem;
+            border-bottom: 1px solid var(--border-light);
+            gap: 1rem;
+            transition: background 0.2s;
+        }
+        .wf-pricing-item:last-child { border-bottom: none; }
+        .wf-pricing-item:hover { background: var(--light-blue-pale); }
+        .wf-pricing-item-info h5 { font-size: 0.95rem; font-weight: 700; color: var(--dark-blue); margin-bottom: 0.25rem; letter-spacing: -0.01em; }
+        .wf-pricing-item-info p { font-size: 0.85rem; color: var(--text-secondary); margin: 0; line-height: 1.5; }
+        .wf-pricing-item-price {
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: var(--yellow-dark);
+            background: var(--yellow-soft);
+            padding: 0.4rem 0.875rem;
+            border-radius: 50px;
+            white-space: nowrap;
+            letter-spacing: 0.03em;
+            text-transform: uppercase;
+        }
+
+        /* FAQ */
+        .wf-faq {
+            background: linear-gradient(180deg, #C1DAE9 0%, #B5D2E3 100%);
+            position: relative;
+            overflow: hidden;
+        }
+        .wf-faq::before {
+            content: '';
+            position: absolute;
+            top: 20%;
+            left: -120px;
+            width: 320px;
+            height: 320px;
+            background: radial-gradient(circle, rgba(168, 232, 249, 0.4) 0%, transparent 70%);
+            border-radius: 50%;
+            pointer-events: none;
+        }
+        .wf-faq::after {
+            content: '';
+            position: absolute;
+            bottom: 15%;
+            right: -100px;
+            width: 280px;
+            height: 280px;
+            background: radial-gradient(circle, rgba(255, 217, 61, 0.18) 0%, transparent 70%);
+            border-radius: 50%;
+            pointer-events: none;
+        }
+
+        .wf-faq-accordion .accordion-item {
+            border: 1px solid rgba(10, 37, 64, 0.06);
+            border-radius: 16px !important;
+            margin-bottom: 0.875rem;
+            overflow: hidden;
+            background: var(--bg-white);
+            transition: all 0.3s;
+            position: relative;
+            box-shadow: 0 4px 12px rgba(10, 74, 107, 0.08);
+        }
+        .wf-faq-accordion .accordion-item::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 4px;
+            height: 100%;
+            background: linear-gradient(180deg, var(--yellow) 0%, var(--primary) 100%);
+            transform: scaleY(0);
+            transform-origin: top;
+            transition: transform 0.35s;
+            z-index: 2;
+        }
+        .wf-faq-accordion .accordion-item:hover::before { transform: scaleY(1); }
+        .wf-faq-accordion .accordion-item:has(.accordion-button:not(.collapsed))::before { transform: scaleY(1); }
+        .wf-faq-accordion .accordion-item:hover {
+            border-color: var(--light-blue);
+            box-shadow: 0 12px 28px rgba(10, 74, 107, 0.15);
+            transform: translateX(4px);
+        }
+        .wf-faq-accordion .accordion-button {
+            background: var(--bg-white);
+            color: var(--dark-blue);
+            font-weight: 700;
+            font-size: 1rem;
+            padding: 1.375rem 1.5rem 1.375rem 1.875rem;
+            border: none;
+            box-shadow: none;
+            letter-spacing: -0.015em;
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+        .wf-faq-accordion .accordion-button::before {
+            content: '';
+            width: 10px;
+            height: 10px;
+            background: var(--yellow);
+            border-radius: 50%;
+            margin-right: 1rem;
+            flex-shrink: 0;
+            transition: all 0.3s;
             display: inline-block;
+            box-shadow: 0 0 0 3px rgba(255, 217, 61, 0.2);
         }
-        
-        /* Contact Section - NEW DESIGN */
-        .contact {
-            padding: 5rem 0;
-            background: linear-gradient(135deg, var(--dark-blue) 0%, #006b99 100%);
-            color: white;
+        .wf-faq-accordion .accordion-button:not(.collapsed) {
+            background: linear-gradient(180deg, var(--light-blue-pale) 0%, var(--bg-white) 100%);
+            color: var(--primary);
         }
+        .wf-faq-accordion .accordion-button:not(.collapsed)::before {
+            background: var(--primary);
+            box-shadow: 0 0 0 4px rgba(0, 90, 133, 0.2);
+        }
+        .wf-faq-accordion .accordion-button:focus { box-shadow: none; }
+        .wf-faq-accordion .accordion-button::after { filter: invert(20%) sepia(40%) saturate(1200%) hue-rotate(180deg); opacity: 0.7; transition: transform 0.3s; }
+        .wf-faq-accordion .accordion-body { padding: 0 1.5rem 1.5rem 1.875rem; font-size: 0.925rem; color: var(--text-secondary); line-height: 1.75; }
+        .wf-faq-accordion .accordion-body strong { color: var(--dark-blue); font-weight: 700; }
 
-        .contact-info-card {
-            transition: all 0.3s;
+        /* CTA */
+        .wf-cta-wrap {
+            background: linear-gradient(180deg, #F0F5F9 0%, #EAF2F8 100%);
         }
-        
-        .contact-info-card:hover {
-            transform: translateY(-8px);
-            box-shadow: 0 10px 30px rgba(0,0,0,0.15) !important;
+        .wf-cta {
+            background: linear-gradient(135deg, #042640 0%, #063452 50%, #005A85 100%);
+            border-radius: 28px;
+            padding: 4.5rem 2.5rem;
+            position: relative;
+            overflow: hidden;
+            text-align: center;
+            box-shadow: 0 30px 60px rgba(4, 38, 64, 0.25);
         }
-        
-        .contact-info-card a:hover {
-            transform: scale(1.05);
-            box-shadow: 0 6px 18px rgba(0,0,0,0.25) !important;
+        .wf-cta::before {
+            content: '';
+            position: absolute;
+            top: -150px;
+            right: -150px;
+            width: 500px;
+            height: 500px;
+            background: radial-gradient(circle, rgba(255, 217, 61, 0.2) 0%, transparent 70%);
+            border-radius: 50%;
+            animation: pulseGlow 6s ease-in-out infinite;
+            pointer-events: none;
         }
+        .wf-cta::after {
+            content: '';
+            position: absolute;
+            bottom: -150px;
+            left: -150px;
+            width: 400px;
+            height: 400px;
+            background: radial-gradient(circle, rgba(168, 232, 249, 0.15) 0%, transparent 70%);
+            border-radius: 50%;
+            pointer-events: none;
+        }
+        .wf-cta-content { position: relative; z-index: 2; }
+        .wf-cta h2 { color: white; font-size: 2.25rem; font-weight: 800; letter-spacing: -0.035em; margin-bottom: 0.875rem; line-height: 1.2; }
+        .wf-cta p { color: rgba(255, 255, 255, 0.85); font-size: 1.05rem; margin-bottom: 2.25rem; max-width: 540px; margin-left: auto; margin-right: auto; line-height: 1.7; }
+        .wf-cta-actions { display: flex; gap: 0.875rem; justify-content: center; flex-wrap: wrap; }
+        .wf-cta .wf-btn-hero-primary { background: var(--yellow); color: var(--dark-blue-deep); }
+        .wf-cta .wf-btn-hero-primary:hover { background: #FFE066; color: var(--dark-blue-deep); }
+        .wf-cta .wf-btn-hero-outline { border-color: rgba(255, 255, 255, 0.5); background: transparent; }
+        .wf-cta .wf-btn-hero-outline:hover { background: white; color: var(--dark-blue-deep); border-color: white; }
 
-        @keyframes bounce {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-10px); }
-        }s
-        
-        /* Footer */
-        .footer {
-            background: #003d57;
-            color: white;
-            padding: 2rem 0;
-        }
-        
-        .footer a {
+        /* FOOTER */
+        .wf-footer {
+            background: linear-gradient(180deg, #042640 0%, #021a2d 100%);
             color: var(--light-blue);
-            text-decoration: none;
-            transition: all 0.3s;
+            padding: 3.5rem 0 1.5rem;
         }
-        
-        .footer a:hover {
-            color: var(--yellow);
+        .wf-footer-brand { display: flex; align-items: center; gap: 12px; margin-bottom: 0.875rem; }
+        .wf-footer-logo-mark { width: 40px; height: 40px; flex-shrink: 0; }
+        .wf-footer-logo-mark svg { width: 100%; height: 100%; }
+        .wf-footer-brand-name { color: white; font-weight: 800; font-size: 1.25rem; letter-spacing: -0.04em; }
+        .wf-footer-brand-name .flow { color: var(--yellow); }
+        .wf-footer-description { color: rgba(168, 232, 249, 0.7); font-size: 0.85rem; line-height: 1.7; max-width: 340px; margin-bottom: 0; }
+        .wf-footer-heading { color: white; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 1rem; }
+        .wf-footer-link { display: block; color: rgba(168, 232, 249, 0.7); font-size: 0.875rem; padding: 0.3rem 0; transition: all 0.2s; }
+        .wf-footer-link:hover { color: var(--yellow); transform: translateX(4px); }
+        .wf-footer-divider {
+            border-top: 1px solid rgba(168, 232, 249, 0.12);
+            margin-top: 2.5rem;
+            padding-top: 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 0.75rem;
         }
-        
-        /* Responsive */
+        .wf-footer-copy { font-size: 0.8rem; color: rgba(168, 232, 249, 0.6); margin: 0; }
+
+        /* RESPONSIVE */
+        @media (max-width: 991px) {
+            .wf-hero h1 { font-size: 3rem; }
+            .wf-hero .tagline { font-size: 1.4rem; }
+            .wf-about-images { max-width: 100%; margin-bottom: 2rem; }
+        }
+
         @media (max-width: 768px) {
-            .hero h1 {
-                font-size: 2.5rem;
-            }
-            
-            .hero .tagline {
-                font-size: 1.5rem;
-            }
-            
-            .hero .sub-tagline {
-                font-size: 1rem;
-            }
-            
-            .section-title {
-                font-size: 2rem;
-            }
-            
-            .main-heading-about {
-                font-size: 2rem;
-            }
-            
-            .image-grid-about {
-                max-width: 100%;
-            }
-            
-            .book-now-card-about {
-                position: static;
-                margin-top: 30px;
-            }
-            
-            .feature-item-about:hover {
-                transform: translateX(0);
-            }
+            .wf-hero { padding: 4rem 0 3rem; min-height: auto; }
+            .wf-hero h1 { font-size: 2.5rem; }
+            .wf-hero .tagline { font-size: 1.2rem; }
+            .wf-hero .sub-tagline { font-size: 1rem; }
+            .wf-hero-buttons, .wf-cta-actions { flex-direction: column; }
+            .wf-btn-hero-primary, .wf-btn-hero-outline { width: 100%; justify-content: center; }
+            .wf-section { padding: 3.5rem 0; }
+            .wf-section-title { font-size: 1.85rem; }
+            .wf-cta { padding: 2.5rem 1.5rem; border-radius: 20px; }
+            .wf-cta h2 { font-size: 1.6rem; }
+            .wf-footer-divider { flex-direction: column; text-align: center; }
+            .wf-pricing-item { flex-direction: column; align-items: flex-start; }
+            .wf-logo-tagline { display: none; }
+            .wf-about-images { grid-template-rows: 180px 180px; }
         }
     </style>
 </head>
 <body>
-    <!-- Navigation -->
-    <nav class="navbar navbar-expand-lg navbar-dark sticky-top">
+
+    <!-- NAVBAR -->
+    <nav class="wf-navbar sticky-top">
         <div class="container">
-            <a class="navbar-brand" href="#"><i class="fas fa-tshirt me-2"></i>MangTV Laundry Shop</a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav ms-auto align-items-center">
-                    <li class="nav-item"><a class="nav-link" href="#home">Home</a></li>
-                    <li class="nav-item"><a class="nav-link" href="#about">About Us</a></li>
-                    <li class="nav-item"><a class="nav-link" href="#services">Services</a></li>
-                    <li class="nav-item"><a class="nav-link" href="#pricing">Price</a></li>
-                    <li class="nav-item"><a class="nav-link" href="#faq">FAQ</a></li>
-                    <li class="nav-item"><a class="nav-link" href="#contact">Contact Us</a></li>
-                    <li class="nav-item"><a class="btn btn-register ms-2" href="javascript:void(0)" onclick="scrollToAuthButtons()">Book Now</a></li>
-                </ul>
+            <div class="d-flex align-items-center justify-content-between">
+                <a href="homepage.php" class="wf-logo">
+                    <div class="wf-logo-mark">
+                        <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <defs>
+                                <linearGradient id="wfLogoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                                    <stop offset="0%" stop-color="#0076A8"/>
+                                    <stop offset="100%" stop-color="#005A85"/>
+                                </linearGradient>
+                                <linearGradient id="wfWaveGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                                    <stop offset="0%" stop-color="#FFD93D"/>
+                                    <stop offset="100%" stop-color="#A8E8F9"/>
+                                </linearGradient>
+                            </defs>
+                            <rect x="2" y="2" width="60" height="60" rx="16" fill="url(#wfLogoGrad)"/>
+                            <path d="M14 24 L20 42 L26 30 L32 42 L38 24"
+                                  stroke="url(#wfWaveGrad)" stroke-width="3.5"
+                                  stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+                            <circle cx="44" cy="24" r="2.5" fill="#FFD93D" opacity="0.9"/>
+                            <circle cx="48" cy="32" r="1.8" fill="#FFD93D" opacity="0.7"/>
+                            <circle cx="44" cy="40" r="1.2" fill="#FFD93D" opacity="0.5"/>
+                            <path d="M14 48 Q22 44 32 48 T50 48"
+                                  stroke="#A8E8F9" stroke-width="2"
+                                  stroke-linecap="round" fill="none" opacity="0.6"/>
+                        </svg>
+                    </div>
+                    <div class="wf-logo-text">
+                        <span class="wf-logo-name">Wash<span class="flow">Flow</span></span>
+                        <span class="wf-logo-tagline">Laundry System</span>
+                    </div>
+                </a>
+
+                <div class="d-none d-lg-flex align-items-center gap-1" id="wfNavLinks">
+                    <a href="#home" class="nav-link active" data-section="home">Home</a>
+                    <a href="#about" class="nav-link" data-section="about">About Us</a>
+                    <a href="#services" class="nav-link" data-section="services">Services</a>
+                    <a href="#pricing" class="nav-link" data-section="pricing">Price</a>
+                    <a href="#faq" class="nav-link" data-section="faq">FAQ</a>
+
+                    <a href="login.php" class="wf-btn-nav-outline ms-3">Sign In</a>
+                    <a href="register.php" class="wf-btn-nav-solid ms-2">Get Started</a>
+                </div>
             </div>
         </div>
     </nav>
 
-    <!-- Hero Section -->
-    <section class="hero" id="home">
+    <!-- HERO -->
+    <section class="wf-hero" id="home">
+        <div class="wf-shape wf-shape-1"></div>
+        <div class="wf-shape wf-shape-2"></div>
+
         <div class="container">
-            <div class="row align-items-center">
-                <div class="col-lg-7 hero-content">
-                    <h1>MangTV Laundry Shop</h1>
-                    <p class="tagline">Fresh Clothes, Hassle-Free Life</p>
-                    <p class="sub-tagline">Book your laundry pickup & delivery anytime, anywhere.</p>
-                    <div class="hero-buttons">
-                        <a href="register.php" class="btn btn-primary-custom">Register Now</a>
-                        <a href="login.php" class="btn btn-outline-custom">Login</a>
-                    </div>
+            <div class="wf-hero-content">
+                <h1 class="anim-slide-left">
+                    Laundry management,<br>
+                    <span class="accent">made simple.</span>
+                </h1>
+                <p class="tagline anim-slide-left anim-delay-1">Manage. Track. Simplify.</p>
+                <p class="sub-tagline anim-slide-left anim-delay-2">
+                    A centralized platform for managing laundry bookings, customer orders,
+                    payments, processing, inventory, and operational records.
+                </p>
+                <div class="wf-hero-buttons anim-slide-left anim-delay-3">
+                    <a href="register.php" class="wf-btn-hero-primary">
+                        Get Started <i class="fas fa-arrow-right"></i>
+                    </a>
+                    <a href="login.php" class="wf-btn-hero-outline">Sign In</a>
                 </div>
             </div>
         </div>
     </section>
 
-    <!-- About Section -->
-    <section class="about" id="about">
+    <!-- ABOUT -->
+    <section class="wf-section wf-about" id="about">
         <div class="container">
-            <div class="row align-items-center">
-                <!-- Left Side - Images -->
-                <div class="col-lg-6 mb-5 mb-lg-0">
-                    <div class="image-grid-about position-relative">
-                        <i class="fas fa-sparkles sparkle-icon-about"></i>
-                        
-                        <div class="image-box-about">
-                            <img src="https://images.unsplash.com/photo-1582735689369-4fe89db7114c?w=500&h=500&fit=crop" alt="Laundry heart hands">
+            <div class="row align-items-center g-5">
+                <div class="col-lg-6 anim-fade-up">
+                    <div class="wf-about-images">
+                        <div class="wf-about-image">
+                            <img src="https://images.unsplash.com/photo-1604176354204-9268737828e4?w=600&h=800&fit=crop" alt="Folded towels">
                         </div>
-                        
-                        <div class="image-box-about large">
-                            <img src="https://images.unsplash.com/photo-1517677208171-0bc6725a3e60?w=500&h=500&fit=crop" alt="Woman with laundry">
+                        <div class="wf-about-image">
+                            <img src="https://images.unsplash.com/photo-1626806787461-102c1bfaaea1?w=600&h=400&fit=crop" alt="Laundry service">
                         </div>
-                        
-                        <div class="image-box-about">
-                            <img src="https://images.unsplash.com/photo-1610557892470-55d9e80c0bce?w=500&h=500&fit=crop" alt="Washing machine">
-                        </div>
-                        
-                       <div class="book-now-card-about" onclick="scrollToAuthButtons()">
-                            <i class="fas fa-calendar-check"></i>
-                            <h5>BOOK NOW</h5>
-                            <p>Enjoy a whole new level of<br>convenience!</p>
+                        <div class="wf-about-image">
+                            <img src="https://images.unsplash.com/photo-1610557892470-55d9e80c0bce?w=600&h=400&fit=crop" alt="Washing machine">
                         </div>
                     </div>
                 </div>
-                
-                <!-- Right Side - Content -->
-                <div class="col-lg-6">
-                    <div class="content-section-about">
-                        <span class="badge-custom-about">ABOUT US</span>
-                        
-                        <h2 class="main-heading-about">Your Trusted Partner in Laundry Care</h2>
-                        
-                        <p class="description-text-about">
-                            We are dedicated professionals committed to delivering exceptional laundry and dry cleaning services that exceed your expectations.
+                <div class="col-lg-6 anim-fade-up anim-delay-2">
+                    <div class="wf-about-content">
+                        <span class="wf-section-label">About the System</span>
+                        <h2>What is WashFlow?</h2>
+                        <p class="lead">
+                            WashFlow is a web-based Laundry Management and Booking System designed
+                            to manage laundry orders, customer bookings, payments, laundry processing,
+                            inventory, scheduling, and operational records through a centralized platform.
                         </p>
-                        
-                        <!-- Features -->
-                        <div class="features-list-about">
-                            <div class="feature-item-about">
-                                <div class="feature-icon-about">
-                                    <i class="fas fa-soap"></i>
-                                </div>
-                                <div class="feature-content-about">
+
+                        <div class="wf-feature-list">
+                            <div class="wf-feature-card">
+                                <div class="wf-feature-card-icon"><i class="fas fa-soap"></i></div>
+                                <div class="wf-feature-card-content">
                                     <h4>Personalized Experience</h4>
-                                    <p>Your clothes deserve the best care. We meticulously sort your garments—separating whites, colors, and darks—to preserve their vibrancy and longevity. Using premium, gentle detergents, we ensure effective cleaning without compromising fabric quality.</p>
+                                    <p>Your clothes deserve the best care. We meticulously sort garments—separating whites, colors, and darks—to preserve their vibrancy and longevity.</p>
                                 </div>
                             </div>
-                            
-                            <div class="feature-item-about">
-                                <div class="feature-icon-about">
-                                    <i class="fas fa-wind"></i>
-                                </div>
-                                <div class="feature-content-about">
+                            <div class="wf-feature-card">
+                                <div class="wf-feature-card-icon"><i class="fas fa-wind"></i></div>
+                                <div class="wf-feature-card-content">
                                     <h4>Quality You Can Trust</h4>
-                                    <p>Our professional drying process ensures your garments are thoroughly dried at optimal temperatures, preserving fabric quality and preventing shrinkage. Every item is treated with the attention and care it deserves.</p>
+                                    <p>Our professional drying process ensures garments are thoroughly dried at optimal temperatures, preserving fabric quality and preventing shrinkage.</p>
                                 </div>
                             </div>
-                            
-                            <div class="feature-item-about">
-                                <div class="feature-icon-about">
-                                    <i class="fas fa-tshirt"></i>
-                                </div>
-                                <div class="feature-content-about">
+                            <div class="wf-feature-card">
+                                <div class="wf-feature-card-icon"><i class="fas fa-tshirt"></i></div>
+                                <div class="wf-feature-card-content">
                                     <h4>Convenience at Your Fingertips</h4>
-                                    <p>Laundry day has never been easier. Every item is carefully folded and organized, ready to be stored in your closet. Simply book through our online platform, and we'll take care of everything seamlessly.</p>
+                                    <p>Laundry day has never been easier. Every item is carefully folded and organized, ready to be stored in your closet.</p>
                                 </div>
                             </div>
                         </div>
@@ -942,69 +929,56 @@
         </div>
     </section>
 
-    <!-- Services Section -->
-    <section class="services" id="services">
+    <!-- SERVICES -->
+    <section class="wf-section wf-services" id="services">
         <div class="container position-relative">
-            <div class="text-center mb-5">
-                <div class="services-badge">OUR SERVICES</div>
-                <h2 class="services-title">We Know How To Make<br>Laundry A Breeze</h2>
-                <p class="services-subtitle">Experience premium laundry care with our professional wash, dry, and fold services</p>
+            <div class="wf-section-header anim-fade-up">
+                <span class="wf-section-label">Services</span>
+                <h2 class="wf-section-title">Laundry services supported by the system</h2>
+                <p class="wf-section-subtitle">
+                    The system is designed to handle the following service categories.
+                </p>
             </div>
-            
-            <div class="row g-4">
-                <!-- Wash Service -->
-                <div class="col-md-6 col-lg-4 fade-in-card">
-                    <div class="card service-card-new">
-                        <div class="image-container-service">
-                            <img src="https://www.thespruce.com/thmb/YWnwT2R569SS93oHP7apKFIE-7Y=/750x0/filters:no_upscale():max_bytes(150000):strip_icc():format(webp)/how-to-keep-white-clothes-white-2146392-05-a08ecae293e044e4af37e1dec899203e.jpg" alt="Wash Service" class="card-img-top">
-                            <div class="icon-badge-service">
-                                <i class="fas fa-sync-alt"></i>
-                            </div>
+
+            <div class="row g-4 position-relative">
+                <div class="col-md-6 col-lg-4 anim-fade-up anim-delay-1">
+                    <div class="wf-service-card">
+                        <div class="wf-service-image">
+                            <img src="https://images.unsplash.com/photo-1604176354204-9268737828e4?w=600&h=400&fit=crop" alt="Wash & Fold">
+                            <div class="wf-service-number">01</div>
                         </div>
-                        <div class="service-card-body-new">
-                            <div class="service-number">01</div>
-                            <h3 class="service-title-new">Wash</h3>
-                            <p class="service-description-new">
-                                Our premium washing service uses state-of-the-art machines and eco-friendly detergents to thoroughly clean your clothes. We treat each garment with care, ensuring optimal cleanliness while maintaining fabric quality.
-                            </p>
+                        <div class="wf-service-body">
+                            <div class="wf-service-icon"><i class="fas fa-tshirt"></i></div>
+                            <h3>Wash &amp; Fold</h3>
+                            <p>Standard laundry processing for everyday clothing, including washing, drying, and folding.</p>
                         </div>
                     </div>
                 </div>
 
-                <!-- Dry Service -->
-                <div class="col-md-6 col-lg-4 fade-in-card">
-                    <div class="card service-card-new">
-                        <div class="image-container-service">
-                            <img src="https://images.unsplash.com/photo-1582735689369-4fe89db7114c?w=500&h=500&fit=crop" alt="Dry Service" class="card-img-top">
-                            <div class="icon-badge-service">
-                                <i class="fas fa-wind"></i>
-                            </div>
+                <div class="col-md-6 col-lg-4 anim-fade-up anim-delay-2">
+                    <div class="wf-service-card">
+                        <div class="wf-service-image">
+                            <img src="https://images.unsplash.com/photo-1545173168-9f1947eebb7f?w=600&h=400&fit=crop" alt="Dry Cleaning">
+                            <div class="wf-service-number">02</div>
                         </div>
-                        <div class="service-card-body-new">
-                            <div class="service-number">02</div>
-                            <h3 class="service-title-new">Dry</h3>
-                            <p class="service-description-new">
-                                Our professional drying service ensures your clothes are perfectly dried at the right temperature. We carefully monitor each cycle to prevent shrinkage and maintain the integrity of your favorite garments.
-                            </p>
+                        <div class="wf-service-body">
+                            <div class="wf-service-icon"><i class="fas fa-wind"></i></div>
+                            <h3>Dry Cleaning</h3>
+                            <p>Specialized cleaning for delicate garments and fabric types that require careful handling.</p>
                         </div>
                     </div>
                 </div>
 
-                <!-- Fold Service -->
-                <div class="col-md-6 col-lg-4 fade-in-card">
-                    <div class="card service-card-new">
-                        <div class="image-container-service">
-                            <img src="https://images.unsplash.com/photo-1517677208171-0bc6725a3e60?w=800&h=600&fit=crop" alt="Fold Service" class="card-img-top">
-                            <div class="icon-badge-service">
-                                <i class="fas fa-layer-group"></i>
-                            </div>
+                <div class="col-md-6 col-lg-4 anim-fade-up anim-delay-3">
+                    <div class="wf-service-card">
+                        <div class="wf-service-image">
+                            <img src="https://images.unsplash.com/photo-1626806787461-102c1bfaaea1?w=600&h=400&fit=crop" alt="Additional Services">
+                            <div class="wf-service-number">03</div>
                         </div>
-                        <div class="service-card-body-new">
-                            <div class="service-number">03</div>
-                            <h3 class="service-title-new">Fold</h3>
-                            <p class="service-description-new">
-                                Our expert folding service delivers your clothes neatly organized and ready to put away. Each item is meticulously folded and sorted, making your laundry day stress-free and your closet perfectly organized.
-                            </p>
+                        <div class="wf-service-body">
+                            <div class="wf-service-icon"><i class="fas fa-plus"></i></div>
+                            <h3>Additional Services</h3>
+                            <p>Optional add-on services and special item processing available during booking.</p>
                         </div>
                     </div>
                 </div>
@@ -1012,484 +986,364 @@
         </div>
     </section>
 
-    <!-- Pricing Section -->
-    <!-- Pricing Section -->
-<section class="pricing" id="pricing">
-    <div class="container">
-        <!-- Title Section -->
-        <div class="row align-items-center mb-5">
-            <div class="col-lg-6">
-                <div class="badge-custom-about">PRICING LIST</div>
-                <h2 class="section-title" style="display: block;">Check Out Our Reasonable Prices</h2>
-            </div>
-            <div class="col-lg-6">
-                <p class="intro-text" style="color: #6c757d; font-size: 1rem; line-height: 1.7;">
-                    At MangTV Laundry Shop, we believe that high-quality laundry services should be accessible to everyone. Our reasonable pricing structure ensures you get the best value for your money. Experience exceptional laundry care without breaking the bank!
-                </p>
-                <p class="intro-text" style="color: #6c757d; font-size: 1rem; line-height: 1.7;">
-                    Browse our pricing for machine washing, dry cleaning, and special items. Fresh, clean clothes are just a visit away!
-                </p>
-            </div>
-        </div>
-
-        <!-- Accordion Section -->
-        <div class="accordion" id="pricingAccordion">
-            <!-- Basic Services -->
-            <div class="accordion-item" style="border: none; border-radius: 16px; margin-bottom: 20px; box-shadow: 0 6px 20px rgba(0,0,0,0.08); overflow: hidden; background: #fff;">
-                <h2 class="accordion-header">
-                    <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#basicServices" aria-expanded="true" style="background: #fff; border: none; padding: 20px 25px; font-size: 1.2rem; font-weight: 700; color: var(--dark-blue);">
-                        <i class="fas fa-tshirt me-3"></i> BASIC SERVICES
-                    </button>
-                </h2>
-                <div id="basicServices" class="accordion-collapse collapse show" data-bs-parent="#pricingAccordion">
-                    <div class="accordion-body" style="padding: 0; background: #fff;">
-                        <div class="service-item" style="padding: 20px 25px; border-bottom: 1px solid #f1f1f1; display: flex; justify-content: space-between; align-items: center;">
-                            <div class="service-details">
-                                <h5 style="color: var(--dark-blue); font-weight: 700; margin-bottom: 6px; font-size: 1.15rem;">Full Service</h5>
-                                <p style="color: #666; font-size: 0.9rem; margin-bottom: 8px;">Wash, dry, and fold with premium detergent & fabric conditioner.</p>
-                                <ul style="list-style: none; padding: 0; margin: 0;">
-                                    <li style="color: #666; font-size: 0.85rem; margin-bottom: 4px;"><i class="fas fa-check text-success me-2"></i>7kg per load capacity</li>
-                                    <li style="color: #666; font-size: 0.85rem; margin-bottom: 4px;"><i class="fas fa-check text-success me-2"></i>Professional washing & drying</li>
-                                    <li style="color: #666; font-size: 0.85rem; margin-bottom: 4px;"><i class="fas fa-check text-success me-2"></i>Neat folding service</li>
-                                </ul>
-                            </div>
-                            <div style="color: #28a745; font-size: 1.5rem; font-weight: bold; background: #eaf8ed; padding: 8px 14px; border-radius: 10px; min-width: 90px; text-align: center;">₱200</div>
-                        </div>
-
-                        <div class="service-item" style="padding: 20px 25px; border-bottom: 1px solid #f1f1f1; display: flex; justify-content: space-between; align-items: center;">
-                            <div class="service-details">
-                                <h5 style="color: var(--dark-blue); font-weight: 700; margin-bottom: 6px; font-size: 1.15rem;">Self Service - Wash Only</h5>
-                                <p style="color: #666; font-size: 0.9rem; margin-bottom: 8px;">Bring your own detergent with flexible timing.</p>
-                                <ul style="list-style: none; padding: 0; margin: 0;">
-                                    <li style="color: #666; font-size: 0.85rem; margin-bottom: 4px;"><i class="fas fa-check text-success me-2"></i>Budget-friendly</li>
-                                    <li style="color: #666; font-size: 0.85rem; margin-bottom: 4px;"><i class="fas fa-check text-success me-2"></i>You control the process</li>
-                                </ul>
-                            </div>
-                            <div style="color: #28a745; font-size: 1.5rem; font-weight: bold; background: #eaf8ed; padding: 8px 14px; border-radius: 10px; min-width: 90px; text-align: center;">₱80</div>
-                        </div>
-
-                        <div class="service-item" style="padding: 20px 25px; display: flex; justify-content: space-between; align-items: center;">
-                            <div class="service-details">
-                                <h5 style="color: var(--dark-blue); font-weight: 700; margin-bottom: 6px; font-size: 1.15rem;">Self Service - Dry Only</h5>
-                                <p style="color: #666; font-size: 0.9rem; margin-bottom: 8px;">For your pre-washed clothes.</p>
-                                <ul style="list-style: none; padding: 0; margin: 0;">
-                                    <li style="color: #666; font-size: 0.85rem; margin-bottom: 4px;"><i class="fas fa-check text-success me-2"></i>Efficient drying</li>
-                                    <li style="color: #666; font-size: 0.85rem; margin-bottom: 4px;"><i class="fas fa-check text-success me-2"></i>Perfect temperature control</li>
-                                </ul>
-                            </div>
-                            <div style="color: #28a745; font-size: 1.5rem; font-weight: bold; background: #eaf8ed; padding: 8px 14px; border-radius: 10px; min-width: 90px; text-align: center;">₱70</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Special Items -->
-            <div class="accordion-item" style="border: none; border-radius: 16px; margin-bottom: 20px; box-shadow: 0 6px 20px rgba(0,0,0,0.08); overflow: hidden; background: #fff;">
-                <h2 class="accordion-header">
-                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#specialItems" style="background: #fff; border: none; padding: 20px 25px; font-size: 1.2rem; font-weight: 700; color: var(--dark-blue);">
-                        <i class="fas fa-bed me-3"></i> SPECIAL ITEMS
-                    </button>
-                </h2>
-                <div id="specialItems" class="accordion-collapse collapse" data-bs-parent="#pricingAccordion">
-                    <div class="accordion-body" style="padding: 0; background: #fff;">
-                        <div class="service-item" style="padding: 20px 25px; border-bottom: 1px solid #f1f1f1; display: flex; justify-content: space-between; align-items: center;">
-                            <div class="service-details">
-                                <h5 style="color: var(--dark-blue); font-weight: 700; margin-bottom: 6px; font-size: 1.15rem;">Blanket/Bedsheet</h5>
-                                <p style="color: #666; font-size: 0.9rem; margin-bottom: 8px;">Heavy-duty cleaning for thick blankets & bedsheets.</p>
-                                <ul style="list-style: none; padding: 0; margin: 0;">
-                                    <li style="color: #666; font-size: 0.85rem; margin-bottom: 4px;"><i class="fas fa-check text-success me-2"></i>Deep sanitization</li>
-                                    <li style="color: #666; font-size: 0.85rem; margin-bottom: 4px;"><i class="fas fa-check text-success me-2"></i>3kg per load</li>
-                                    <li style="color: #666; font-size: 0.85rem; margin-bottom: 4px;"><i class="fas fa-check text-success me-2"></i>Fresh and clean results</li>
-                                </ul>
-                            </div>
-                            <div style="color: #28a745; font-size: 1.5rem; font-weight: bold; background: #eaf8ed; padding: 8px 14px; border-radius: 10px; min-width: 90px; text-align: center;">₱200</div>
-                        </div>
-
-                        <div class="service-item" style="padding: 20px 25px; display: flex; justify-content: space-between; align-items: center;">
-                            <div class="service-details">
-                                <h5 style="color: var(--dark-blue); font-weight: 700; margin-bottom: 6px; font-size: 1.15rem;">Comforter</h5>
-                                <p style="color: #666; font-size: 0.9rem; margin-bottom: 8px;">Gentle care to maintain fluffiness.</p>
-                                <ul style="list-style: none; padding: 0; margin: 0;">
-                                    <li style="color: #666; font-size: 0.85rem; margin-bottom: 4px;"><i class="fas fa-check text-success me-2"></i>Handled with care</li>
-                                    <li style="color: #666; font-size: 0.85rem; margin-bottom: 4px;"><i class="fas fa-check text-success me-2"></i>1 piece per load</li>
-                                    <li style="color: #666; font-size: 0.85rem; margin-bottom: 4px;"><i class="fas fa-check text-success me-2"></i>Keeps original texture</li>
-                                </ul>
-                            </div>
-                            <div style="color: #28a745; font-size: 1.5rem; font-weight: bold; background: #eaf8ed; padding: 8px 14px; border-radius: 10px; min-width: 90px; text-align: center;">₱200</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Add-On Services -->
-            <div class="accordion-item" style="border: none; border-radius: 16px; margin-bottom: 20px; box-shadow: 0 6px 20px rgba(0,0,0,0.08); overflow: hidden; background: #fff;">
-                <h2 class="accordion-header">
-                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#addOns" style="background: #fff; border: none; padding: 20px 25px; font-size: 1.2rem; font-weight: 700; color: var(--dark-blue);">
-                        <i class="fas fa-plus-circle me-3"></i> ADD-ON SERVICES
-                    </button>
-                </h2>
-                <div id="addOns" class="accordion-collapse collapse" data-bs-parent="#pricingAccordion">
-                    <div class="accordion-body" style="padding: 0; background: #fff;">
-                        <div class="service-item" style="padding: 20px 25px; display: flex; justify-content: space-between; align-items: center;">
-                            <div class="service-details">
-                                <h5 style="color: var(--dark-blue); font-weight: 700; margin-bottom: 6px; font-size: 1.15rem;">Extra Dry</h5>
-                                <p style="color: #666; font-size: 0.9rem; margin-bottom: 8px;">Extended drying for thick fabrics.</p>
-                                <ul style="list-style: none; padding: 0; margin: 0;">
-                                    <li style="color: #666; font-size: 0.85rem; margin-bottom: 4px;"><i class="fas fa-check text-success me-2"></i>Ensures complete dryness</li>
-                                    <li style="color: #666; font-size: 0.85rem; margin-bottom: 4px;"><i class="fas fa-check text-success me-2"></i>Perfect for bulky clothes</li>
-                                </ul>
-                            </div>
-                            <div style="color: #28a745; font-size: 1.5rem; font-weight: bold; background: #eaf8ed; padding: 8px 14px; border-radius: 10px; min-width: 90px; text-align: center;">₱15</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-</section>
-
-    <!-- FAQ Section -->
-  <!-- FAQ Section - NEW DESIGN -->
-    <section class="faq" id="faq">
+    <!-- PRICING -->
+    <section class="wf-section wf-pricing" id="pricing">
         <div class="container">
-            <div class="text-center mb-5">
-                <div class="mb-3">
-                    <i class="fas fa-soap" style="color: var(--yellow); font-size: 2rem; margin: 0 15px; animation: sparkle 1.5s ease-in-out infinite;"></i>
-                    <i class="fas fa-star" style="color: var(--yellow); font-size: 2rem; margin: 0 15px; animation: sparkle 1.5s ease-in-out infinite;"></i>
-                </div>
-                <h2 class="section-title" style="display: block;">Your Laundry Queries, Answered!</h2>
-                <p style="color: #6c757d; font-size: 1.1rem;">Everything you need to know about MangTV Laundry Shop</p>
+            <div class="wf-section-header anim-fade-up">
+                <span class="wf-section-label">Service Rates</span>
+                <h2 class="wf-section-title">Service categories and rates</h2>
+                <p class="wf-section-subtitle">
+                    Pricing varies depending on the service type and order details.
+                    Contact the administrator for specific pricing information.
+                </p>
             </div>
-            
+
             <div class="row justify-content-center">
-                <div class="col-lg-10">
-                    <div class="accordion" id="faqAccordion">
-                        <!-- Question 1 -->
+                <div class="col-lg-10 anim-fade-up anim-delay-1">
+                    <div class="accordion wf-pricing-accordion" id="pricingAccordion">
+
                         <div class="accordion-item">
                             <h2 class="accordion-header">
-                                <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#faq1">
-                                    What are your operating hours?
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#pricingBasic">
+                                    <i class="fas fa-tshirt category-icon"></i> Basic Services
                                 </button>
                             </h2>
-                            <div id="faq1" class="accordion-collapse collapse show" data-bs-parent="#faqAccordion">
+                            <div id="pricingBasic" class="accordion-collapse collapse" data-bs-parent="#pricingAccordion">
                                 <div class="accordion-body">
-                                    We're open from <strong>7:00 AM to 6:00 PM daily</strong>. Drop off your laundry in the morning, and we'll have it ready by the afternoon! Our same-day service ensures you get your clothes back fresh and clean on the same day.
+                                    <div class="wf-pricing-item">
+                                        <div class="wf-pricing-item-info">
+                                            <h5>Full Service</h5>
+                                            <p>Wash, dry, and fold with standard detergent and fabric conditioner.</p>
+                                        </div>
+                                        <span class="wf-pricing-item-price">Varies</span>
+                                    </div>
+                                    <div class="wf-pricing-item">
+                                        <div class="wf-pricing-item-info">
+                                            <h5>Wash Only</h5>
+                                            <p>Washing service for self-service customers.</p>
+                                        </div>
+                                        <span class="wf-pricing-item-price">Varies</span>
+                                    </div>
+                                    <div class="wf-pricing-item">
+                                        <div class="wf-pricing-item-info">
+                                            <h5>Dry Only</h5>
+                                            <p>Drying service for pre-washed clothing.</p>
+                                        </div>
+                                        <span class="wf-pricing-item-price">Varies</span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                        
-                        <!-- Question 2 -->
+
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#pricingSpecial">
+                                    <i class="fas fa-bed category-icon"></i> Special Items
+                                </button>
+                            </h2>
+                            <div id="pricingSpecial" class="accordion-collapse collapse" data-bs-parent="#pricingAccordion">
+                                <div class="accordion-body">
+                                    <div class="wf-pricing-item">
+                                        <div class="wf-pricing-item-info">
+                                            <h5>Blanket / Bedsheet</h5>
+                                            <p>Heavy-duty cleaning for thick blankets and bedsheets.</p>
+                                        </div>
+                                        <span class="wf-pricing-item-price">Varies</span>
+                                    </div>
+                                    <div class="wf-pricing-item">
+                                        <div class="wf-pricing-item-info">
+                                            <h5>Comforter</h5>
+                                            <p>Gentle care to maintain fluffiness and texture.</p>
+                                        </div>
+                                        <span class="wf-pricing-item-price">Varies</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#pricingAddons">
+                                    <i class="fas fa-plus-circle category-icon"></i> Add-On Services
+                                </button>
+                            </h2>
+                            <div id="pricingAddons" class="accordion-collapse collapse" data-bs-parent="#pricingAccordion">
+                                <div class="accordion-body">
+                                    <div class="wf-pricing-item">
+                                        <div class="wf-pricing-item-info">
+                                            <h5>Extra Dry</h5>
+                                            <p>Extended drying for thick fabrics and bulky items.</p>
+                                        </div>
+                                        <span class="wf-pricing-item-price">Varies</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- FAQ -->
+    <section class="wf-section wf-faq" id="faq">
+        <div class="container position-relative">
+            <div class="wf-section-header anim-fade-up">
+                <span class="wf-section-label">FAQ</span>
+                <h2 class="wf-section-title">Frequently asked questions</h2>
+                <p class="wf-section-subtitle">
+                    Common questions about the WashFlow system.
+                </p>
+            </div>
+
+            <div class="row justify-content-center position-relative">
+                <div class="col-lg-9 anim-fade-up anim-delay-1">
+                    <div class="accordion wf-faq-accordion" id="faqAccordion">
+
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq1">
+                                    What is WashFlow?
+                                </button>
+                            </h2>
+                            <div id="faq1" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                                <div class="accordion-body">
+                                    WashFlow is a web-based Laundry Management and Booking System designed to manage laundry orders, customer bookings, payments, laundry processing, inventory, scheduling, and operational records through a centralized platform.
+                                </div>
+                            </div>
+                        </div>
+
                         <div class="accordion-item">
                             <h2 class="accordion-header">
                                 <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq2">
-                                    Do you offer same-day service?
+                                    Who can use the system?
                                 </button>
                             </h2>
                             <div id="faq2" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
                                 <div class="accordion-body">
-                                    <strong>Yes, absolutely!</strong> Clothes dropped off in the morning are typically ready by afternoon. We have <strong>6 washing machines</strong> running efficiently to handle multiple loads, ensuring fast turnaround times without compromising quality.
+                                    The system supports three user roles: <strong>Administrators</strong> (full system access), <strong>Staff</strong> (manage orders, bookings, payments, and inventory), and <strong>Customers</strong> (create bookings, track orders, submit payments, and provide feedback).
                                 </div>
                             </div>
                         </div>
-                        
-                        <!-- Question 3 -->
+
                         <div class="accordion-item">
                             <h2 class="accordion-header">
                                 <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq3">
-                                    What detergents do you use?
+                                    How does the booking process work?
                                 </button>
                             </h2>
                             <div id="faq3" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
                                 <div class="accordion-body">
-                                    We use <strong>quality detergent and fabric conditioner</strong> included in our full service package. For extra dirty or heavily soiled clothes, we add additional soap at no extra charge to ensure your items are thoroughly cleaned and smell amazing!
+                                    Customers submit a booking through the platform. The booking is reviewed and approved by staff, converted into an order, and then processed through a defined workflow: <strong>Received → Processing → Ready → Completed</strong>. Customers can track the status of their order in real time.
                                 </div>
                             </div>
                         </div>
-                        
-                        <!-- Question 4 -->
+
                         <div class="accordion-item">
                             <h2 class="accordion-header">
                                 <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq4">
-                                    Do you offer pick-up and delivery services?
+                                    What payment methods are supported?
                                 </button>
                             </h2>
                             <div id="faq4" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
                                 <div class="accordion-body">
-                                    <strong>Yes, we do!</strong> We offer <strong>FREE delivery within Bucana</strong>, especially for students. For other areas in Nasugbu, delivery is available for just <strong>₱35</strong>. Simply call us or book to schedule a pick-up!
+                                    The system supports multiple payment methods, including <strong>cash</strong> and <strong>GCash</strong>. For GCash payments, customers can upload proof of payment, which is then reviewed and verified by staff.
                                 </div>
                             </div>
                         </div>
-                        
-                        <!-- Question 5 -->
+
                         <div class="accordion-item">
                             <h2 class="accordion-header">
                                 <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq5">
-                                    Can you handle delicate and special care items?
+                                    Does the system manage inventory?
                                 </button>
                             </h2>
                             <div id="faq5" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
                                 <div class="accordion-body">
-                                    <strong>Absolutely!</strong> We carefully handle all laundry types including blankets, bedsheets, and comforters. Our experienced staff of 3 trained employees ensures each item receives appropriate care and attention. We meticulously categorize laundry pieces to prevent mix-ups.
+                                    Yes. The system includes inventory management, allowing staff to track stock levels, monitor low-stock items, manage suppliers, and record purchase orders. Inventory can also be automatically deducted based on laundry orders.
                                 </div>
                             </div>
                         </div>
-                        
-                        <!-- Question 6 -->
+
                         <div class="accordion-item">
                             <h2 class="accordion-header">
                                 <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq6">
-                                    How do I pay for your services?
+                                    Can customers submit feedback or complaints?
                                 </button>
                             </h2>
                             <div id="faq6" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
                                 <div class="accordion-body">
-                                    Payment is made when you <strong>pick up your clean laundry</strong> or upon delivery. We accept <strong>cash payments</strong> and keep detailed records of all transactions. <strong>Students</strong> automatically receive special discounted rates!
+                                    Yes. Customers can submit feedback, complaints, or suggestions through the system. Staff can review, respond to, and mark these as resolved or closed.
                                 </div>
                             </div>
                         </div>
-                        
-                        <!-- Question 7 -->
+
                         <div class="accordion-item">
                             <h2 class="accordion-header">
                                 <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq7">
-                                    How does online booking work?
+                                    Is the system accessible on mobile devices?
                                 </button>
                             </h2>
                             <div id="faq7" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
                                 <div class="accordion-body">
-                                    You can contact us via <strong>Facebook (@idolsperfume)</strong> or call us directly at <strong>0905-779-8485 / 0907-815-4479</strong>. We collect your Facebook account details for easy status updates on your laundry. Just let us know your preferred drop-off and pick-up times, and we'll take care of the rest!
+                                    Yes. The system is designed with a responsive layout and can be accessed on desktop, tablet, and mobile devices through a standard web browser.
                                 </div>
                             </div>
                         </div>
-                    </div>
-                    
-                    <div class="text-center mt-5">
-                        <p class="text-muted mb-2">Still have questions?</p>
-                        <a href="https://www.facebook.com/idolsperfume" target="_blank" class="btn btn-register" style="display: inline-block; padding: 0.8rem 2rem; border-radius: 30px;">
-                            <i class="fab fa-facebook-messenger me-2"></i>Chat with Us
-                        </a>
-                        <p class="text-muted mt-3 small">
-                            <i class="fas fa-map-marker-alt me-2"></i>R. Martinez St. Brgy. Bucana, Nasugbu, Philippines
-                        </p>
+
                     </div>
                 </div>
             </div>
         </div>
     </section>
 
-<!-- Contact Section - INTERACTIVE DESIGN -->
-<section class="contact" id="contact">
-    <div class="container" style="max-width: 1200px;">
-        <div class="text-center mb-5">
-            <div class="mb-3">
-                <i class="fas fa-headset" style="color: var(--yellow); font-size: 2.5rem; animation: bounce 2s ease-in-out infinite;"></i>
-            </div>
-            <h2 class="section-title text-white">Get In Touch</h2>
-            <p style="color: rgba(255,255,255,0.9); font-size: 1rem; max-width: 600px; margin: 0 auto;">Have questions? We're here to help! Reach out to us anytime.</p>
-        </div>
-        
-        <!-- Contact Information -->
-        <div class="row justify-content-center">
-            <div class="col-lg-11">
-                <div style="background: white; border-radius: 20px; padding: 45px 40px; box-shadow: 0 15px 50px rgba(0,0,0,0.3);">
-                    
-                    <div class="row g-3">
-                        <!-- Location Card - CLICKABLE -->
-                        <div class="col-md-4">
-                            <a href="https://www.google.com/maps/search/?api=1&query=R.+Martinez+St.+Brgy.+Bucana+Nasugbu+Philippines" target="_blank" style="text-decoration: none; display: block; height: 100%;">
-                                <div class="contact-info-card" style="background: linear-gradient(135deg, var(--dark-blue) 0%, #006b99 100%); border-radius: 15px; padding: 30px 20px; text-align: center; height: 100%; box-shadow: 0 4px 12px rgba(0,83,122,0.2); cursor: pointer; transition: all 0.3s ease;">
-                                    <div style="background: white; width: 60px; height: 60px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 18px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); transition: all 0.3s ease;">
-                                        <i class="fas fa-map-marker-alt" style="color: var(--dark-blue); font-size: 24px;"></i>
-                                    </div>
-                                    <h5 style="color: white; font-weight: 700; margin-bottom: 12px; font-size: 1.15rem;">Our Location</h5>
-                                    <p style="color: rgba(255,255,255,0.95); margin: 0; font-weight: 500; line-height: 1.6; font-size: 0.9rem;">R. Martinez St. Brgy. Bucana, Nasugbu, Philippines</p>
-                                    <p style="color: var(--yellow); margin-top: 10px; font-size: 0.85rem; font-weight: 600;">
-                                        <i class="fas fa-external-link-alt me-1"></i>View on Maps
-                                    </p>
-                                </div>
-                            </a>
-                        </div>
-                        
-                        <!-- Phone Card - CLICKABLE -->
-                        <div class="col-md-4">
-                            <div class="contact-info-card" style="background: linear-gradient(135deg, var(--dark-blue) 0%, #006b99 100%); border-radius: 15px; padding: 30px 20px; text-align: center; height: 100%; box-shadow: 0 4px 12px rgba(0,83,122,0.2);">
-                                <div style="background: white; width: 60px; height: 60px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 18px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
-                                    <i class="fas fa-phone-alt" style="color: var(--dark-blue); font-size: 24px;"></i>
-                                </div>
-                                <h5 style="color: white; font-weight: 700; margin-bottom: 12px; font-size: 1.15rem;">Call Us</h5>
-                                <a href="tel:+639057798485" style="color: rgba(255,255,255,0.95); text-decoration: none; font-weight: 600; line-height: 1.7; font-size: 0.95rem; display: block; transition: all 0.3s ease; padding: 5px; border-radius: 5px;">
-                                    <i class="fas fa-phone me-2"></i>0905 779 8485
-                                </a>
-                                <a href="tel:+639078154479" style="color: rgba(255,255,255,0.95); text-decoration: none; font-weight: 600; line-height: 1.7; font-size: 0.95rem; display: block; transition: all 0.3s ease; padding: 5px; border-radius: 5px;">
-                                    <i class="fas fa-phone me-2"></i>0907 815 4479
-                                </a>
-                                <p style="color: var(--yellow); margin-top: 10px; font-size: 0.85rem; font-weight: 600;">
-                                    <i class="fas fa-hand-pointer me-1"></i>Click to call
-                                </p>
-                            </div>
-                        </div>
-                        
-                        <!-- Email Card - CLICKABLE -->
-                        <div class="col-md-4">
-                            <a href="mailto:adralesidol@gmail.com?subject=Laundry%20Service%20Inquiry&body=Hello%20MangTV%20Laundry%20Shop,%0D%0A%0D%0AI%20would%20like%20to%20inquire%20about..." style="text-decoration: none; display: block; height: 100%;">
-                                <div class="contact-info-card" style="background: linear-gradient(135deg, var(--dark-blue) 0%, #006b99 100%); border-radius: 15px; padding: 30px 20px; text-align: center; height: 100%; box-shadow: 0 4px 12px rgba(0,83,122,0.2); cursor: pointer; transition: all 0.3s ease;">
-                                    <div style="background: white; width: 60px; height: 60px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 18px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); transition: all 0.3s ease;">
-                                        <i class="fas fa-envelope" style="color: var(--dark-blue); font-size: 24px;"></i>
-                                    </div>
-                                    <h5 style="color: white; font-weight: 700; margin-bottom: 12px; font-size: 1.15rem;">Email Us</h5>
-                                    <p style="color: rgba(255,255,255,0.95); margin: 0; font-weight: 500; line-height: 1.6; font-size: 0.9rem; word-break: break-word;">adralesidol@gmail.com</p>
-                                    <p style="color: var(--yellow); margin-top: 10px; font-size: 0.85rem; font-weight: 600;">
-                                        <i class="fas fa-paper-plane me-1"></i>Send Email
-                                    </p>
-                                </div>
-                            </a>
-                        </div>
-
-                        <!-- Facebook Card -->
-                        <div class="col-md-6">
-                            <div style="background: linear-gradient(135deg, var(--dark-blue) 0%, #006b99 100%); border-radius: 15px; padding: 30px 25px; text-align: center; height: 100%; box-shadow: 0 5px 15px rgba(0,83,122,0.25);">
-                                <div style="background: white; width: 60px; height: 60px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 18px; box-shadow: 0 5px 15px rgba(0,0,0,0.2);">
-                                    <i class="fab fa-facebook-f" style="color: var(--dark-blue); font-size: 26px;"></i>
-                                </div>
-                                <h5 style="color: white; font-weight: 700; margin-bottom: 12px; font-size: 1.15rem;">Connect on Facebook</h5>
-                                <p style="color: rgba(255,255,255,0.9); margin-bottom: 20px; font-size: 0.9rem; line-height: 1.5;">Follow us for updates and promos!</p>
-                                <a href="https://www.facebook.com/idolsperfume" target="_blank" style="background: var(--yellow); color: var(--dark-blue); padding: 10px 28px; border-radius: 50px; text-decoration: none; font-weight: 700; display: inline-block; transition: all 0.3s; box-shadow: 0 4px 12px rgba(255,243,91,0.3); font-size: 0.95rem;">
-                                    <i class="fab fa-facebook-messenger me-2"></i>Visit Page
-                                </a>
-                            </div>
-                        </div>
-                        
-                        <!-- Delivery Card -->
-                        <div class="col-md-6">
-                            <div style="background: linear-gradient(135deg, var(--dark-blue) 0%, #006b99 100%); border-radius: 15px; padding: 30px 25px; text-align: center; height: 100%; box-shadow: 0 5px 15px rgba(0,83,122,0.25);">
-                                <div style="background: white; width: 60px; height: 60px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 18px; box-shadow: 0 5px 15px rgba(0,0,0,0.2);">
-                                    <i class="fas fa-truck" style="color: var(--dark-blue); font-size: 26px;"></i>
-                                </div>
-                                <h5 style="color: white; font-weight: 700; margin-bottom: 12px; font-size: 1.15rem;">Delivery Service</h5>
-                                <p style="color: rgba(255,255,255,0.9); margin-bottom: 15px; font-size: 0.9rem; line-height: 1.5;">We deliver to your doorstep!</p>
-                                <div style="background: rgba(168,232,249,0.15); border-radius: 10px; padding: 12px;">
-                                    <p style="color: white; margin: 0; font-weight: 600; font-size: 0.85rem;"><i class="fas fa-check-circle me-2"></i>Discount for students</p>
-                                    <p style="color: white; margin: 6px 0 0 0; font-weight: 600; font-size: 0.85rem;"><i class="fas fa-check-circle me-2"></i>₱35 other areas</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="text-center mt-4 pt-3" style="border-top: 2px dashed #e0e0e0;">
-                        <p style="color: #666; font-size: 0.95rem; margin-bottom: 15px; font-weight: 500;">
-                            <i class="fas fa-clock me-2" style="color: var(--dark-blue);"></i>
-                            Open Daily: <strong style="color: var(--dark-blue);">7:00 AM - 6:00 PM</strong>
-                        </p>
-                        <a href="https://www.facebook.com/idolsperfume" target="_blank" class="btn btn-register" style="display: inline-block; padding: 12px 40px; border-radius: 50px; font-size: 1.05rem; box-shadow: 0 6px 20px rgba(255,243,91,0.3);">
-                            <i class="fab fa-facebook-messenger me-2"></i>Message Us Now
-                        </a>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-</section>
-
-
-    <!-- Footer -->
-    <footer class="footer">
+    <!-- CTA BANNER -->
+    <section class="wf-section wf-cta-wrap" style="padding-top: 4rem; padding-bottom: 5rem;">
         <div class="container">
-            <div class="row">
-                <div class="col-md-6 text-center text-md-start">
-                    <p class="mb-0">&copy; 2025 MangTV Laundry Shop. All rights reserved.</p>
+            <div class="wf-cta anim-fade-up">
+                <div class="wf-cta-content">
+                    <h2>Ready to streamline your laundry operations?</h2>
+                    <p>
+                        Create an account and start managing bookings, orders, payments,
+                        and inventory through one centralized platform.
+                    </p>
+                    <div class="wf-cta-actions">
+                        <a href="register.php" class="wf-btn-hero-primary">
+                            Get Started <i class="fas fa-arrow-right"></i>
+                        </a>
+                        <a href="login.php" class="wf-btn-hero-outline">Sign In</a>
+                    </div>
                 </div>
-                <div class="col-md-6 text-center text-md-end">
-                    <a href="https://www.facebook.com/idolsperfume" target="_blank" class="me-3"><i class="fab fa-facebook fa-lg"></i></a>
-                    <a href="#" class="me-3"><i class="fab fa-instagram fa-lg"></i></a>
-                    <a href="#" ><i class="fab fa-twitter fa-lg"></i></a>
+            </div>
+        </div>
+    </section>
+
+    <!-- FOOTER -->
+    <footer class="wf-footer">
+        <div class="container">
+            <div class="row g-4">
+                <div class="col-lg-5 col-md-12">
+                    <div class="wf-footer-brand">
+                        <div class="wf-footer-logo-mark">
+                            <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <defs>
+                                    <linearGradient id="wfFooterLogoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                                        <stop offset="0%" stop-color="#0076A8"/>
+                                        <stop offset="100%" stop-color="#005A85"/>
+                                    </linearGradient>
+                                    <linearGradient id="wfFooterWaveGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                                        <stop offset="0%" stop-color="#FFD93D"/>
+                                        <stop offset="100%" stop-color="#A8E8F9"/>
+                                    </linearGradient>
+                                </defs>
+                                <rect x="2" y="2" width="60" height="60" rx="16" fill="url(#wfFooterLogoGrad)"/>
+                                <path d="M14 24 L20 42 L26 30 L32 42 L38 24"
+                                      stroke="url(#wfFooterWaveGrad)" stroke-width="3.5"
+                                      stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+                                <circle cx="44" cy="24" r="2.5" fill="#FFD93D" opacity="0.9"/>
+                                <circle cx="48" cy="32" r="1.8" fill="#FFD93D" opacity="0.7"/>
+                                <circle cx="44" cy="40" r="1.2" fill="#FFD93D" opacity="0.5"/>
+                                <path d="M14 48 Q22 44 32 48 T50 48"
+                                      stroke="#A8E8F9" stroke-width="2"
+                                      stroke-linecap="round" fill="none" opacity="0.6"/>
+                            </svg>
+                        </div>
+                        <span class="wf-footer-brand-name">Wash<span class="flow">Flow</span></span>
+                    </div>
+                    <p class="wf-footer-description">
+                        A web-based Laundry Management and Booking System designed to manage
+                        laundry orders, bookings, payments, and operational records through
+                        a centralized platform.
+                    </p>
                 </div>
+                <div class="col-lg-2 col-md-4 col-6">
+                    <div class="wf-footer-heading">System</div>
+                    <a href="#about" class="wf-footer-link">About</a>
+                    <a href="#services" class="wf-footer-link">Services</a>
+                    <a href="#pricing" class="wf-footer-link">Pricing</a>
+                    <a href="#faq" class="wf-footer-link">FAQ</a>
+                </div>
+                <div class="col-lg-2 col-md-4 col-6">
+                    <div class="wf-footer-heading">Account</div>
+                    <a href="login.php" class="wf-footer-link">Sign In</a>
+                    <a href="register.php" class="wf-footer-link">Register</a>
+                </div>
+                <div class="col-lg-3 col-md-4 col-12">
+                    <div class="wf-footer-heading">System Info</div>
+                    <p class="wf-footer-description" style="font-size: 0.8rem;">
+                        Laundry Management and Booking System<br>
+                        Version 2.0 — WashFlow
+                    </p>
+                </div>
+            </div>
+
+            <div class="wf-footer-divider">
+                <p class="wf-footer-copy">
+                    &copy; <?php echo $currentYear; ?> WashFlow. All rights reserved.
+                </p>
             </div>
         </div>
     </footer>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
     <script>
-        // Function to scroll to and highlight auth buttons - KEEP THIS!
-        function scrollToAuthButtons() {
-            const heroSection = document.querySelector('.hero');
-            const authButtons = document.querySelectorAll('.hero-buttons .btn');
-            
-            // Smooth scroll to hero section
-            heroSection.scrollIntoView({
-                behavior: 'smooth',
-                block: 'center'
-            });
-            
-            // Add highlight animation after scroll
-            setTimeout(() => {
-                authButtons.forEach(btn => {
-                    btn.classList.add('highlight-pulse');
+        document.addEventListener('DOMContentLoaded', function () {
+            const animatedElements = document.querySelectorAll('.anim-fade-up, .anim-slide-left');
+
+            animatedElements.forEach(el => { el.style.opacity = '0'; });
+
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        entry.target.style.opacity = '';
+                        entry.target.style.animationPlayState = 'running';
+                        observer.unobserve(entry.target);
+                    }
                 });
-                
-                // Remove animation class after it completes
-                setTimeout(() => {
-                    authButtons.forEach(btn => {
-                        btn.classList.remove('highlight-pulse');
-                    });
-                }, 4500);
-            }, 800);
-        }
-
-        // Smooth scrolling for navigation links
-        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-            anchor.addEventListener('click', function (e) {
-                e.preventDefault();
-                const target = document.querySelector(this.getAttribute('href'));
-                if (target) {
-                    target.scrollIntoView({
-                        behavior: 'smooth',
-                        block: 'start'
-                    });
-                }
+            }, {
+                threshold: 0.1,
+                rootMargin: '0px 0px -50px 0px'
             });
-        });
 
-        // Add active class to navigation links on scroll
-        let ticking = false;
-        
-        function updateActiveNavLink() {
+            animatedElements.forEach(el => {
+                el.style.animationPlayState = 'paused';
+                observer.observe(el);
+            });
+
+            const heroElements = document.querySelectorAll('.wf-hero .anim-slide-left');
+            heroElements.forEach(el => {
+                el.style.animationPlayState = 'running';
+                el.style.opacity = '';
+            });
+
             const sections = document.querySelectorAll('section[id]');
-            const navLinks = document.querySelectorAll('.nav-link[href^="#"]');
-            
-            let currentSection = '';
-            const scrollPosition = window.scrollY + 150;
-            
-            sections.forEach(section => {
-                const sectionTop = section.offsetTop;
-                const sectionHeight = section.offsetHeight;
-                
-                if (scrollPosition >= sectionTop && scrollPosition < sectionTop + sectionHeight) {
-                    currentSection = section.getAttribute('id');
-                }
-            });
-            
-            navLinks.forEach(link => {
-                link.classList.remove('active');
-                
-                if (link.getAttribute('href') === `#${currentSection}`) {
-                    link.classList.add('active');
-                }
-            });
-            
-            ticking = false;
-        }
-        
-        window.addEventListener('scroll', () => {
-            if (!ticking) {
-                window.requestAnimationFrame(() => {
-                    updateActiveNavLink();
-                    ticking = false;
+            const navLinks = document.querySelectorAll('.wf-navbar .nav-link[data-section]');
+
+            function updateActiveNav() {
+                let current = 'home';
+                const scrollPos = window.scrollY + 150;
+
+                sections.forEach(section => {
+                    const top = section.offsetTop;
+                    const height = section.offsetHeight;
+                    if (scrollPos >= top && scrollPos < top + height) {
+                        current = section.getAttribute('id');
+                    }
                 });
-                ticking = true;
+
+                navLinks.forEach(link => {
+                    link.classList.remove('active');
+                    if (link.dataset.section === current) {
+                        link.classList.add('active');
+                    }
+                });
             }
+
+            window.addEventListener('scroll', updateActiveNav, { passive: true });
+            updateActiveNav();
         });
-        
-        updateActiveNavLink();
     </script>
 </body>
 </html>

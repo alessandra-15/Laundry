@@ -1,53 +1,98 @@
 <?php
-session_start();
-include 'db_connect.php';
+/**
+ * logout.php
+ * WashFlow — Universal Logout (role-specific)
+ *
+ * 🆕 Only clears the session of the current role.
+ *    Other roles (admin, staff, customer) on other tabs remain logged in.
+ */
+define('APP_STARTED', true);
+require_once 'session_config.php';
+require_once 'db_connect.php';
+require_once 'logger.php';
+require_once 'functions.php';
 
-// If activity_id is stored in session, update that specific row
-$activityId = $_SESSION['activity_id'] ?? null;
-$customerId = $_SESSION['customer_id'] ?? null;
+/* Detect current role */
+$current_role = $wf_current_role ?? wf_detect_role();
 
-if ($activityId) {
-    if ($stmt = $conn->prepare("UPDATE user_activity SET logout_time = NOW(), status = 'Offline' WHERE id = ?")) {
-        $stmt->bind_param('i', $activityId);
-        $stmt->execute();
-        $stmt->close();
-    } else {
-        error_log("logout: failed to prepare update by id: " . $conn->error);
-    }
-} elseif ($customerId) {
-    // Best-effort: update the most recent activity row for this customer that has no logout_time
-    $sql = "UPDATE user_activity SET logout_time = NOW(), status = 'Offline' WHERE customer_id = ? AND (logout_time IS NULL OR logout_time = '') ORDER BY id DESC LIMIT 1";
-    if ($stmt = $conn->prepare($sql)) {
-        $stmt->bind_param('i', $customerId);
-        $stmt->execute();
-        $stmt->close();
-    } else {
-        // Last-resort: update any row without logout_time (may affect multiple rows) - only if prepare with ORDER/LIMIT fails
-        if ($stmt2 = $conn->prepare("UPDATE user_activity SET logout_time = NOW(), status = 'Offline' WHERE customer_id = ? AND (logout_time IS NULL OR logout_time = '')")) {
-            $stmt2->bind_param('i', $customerId);
-            $stmt2->execute();
-            $stmt2->close();
-        } else {
-            error_log("logout: failed to update user_activity for customer_id: " . $conn->error);
+/* Determine the user in THIS session only */
+$cu = current_user();
+$role = $cu['type'] ?? null;
+$user_id = $cu['id'] ?? null;
+
+$redirect_url = 'login.php';
+if ($role === 'admin')         $redirect_url = 'admin_login.php';
+elseif ($role === 'staff')     $redirect_url = 'staff_login.php';
+elseif ($role === 'customer')  $redirect_url = 'login.php';
+
+/* Log the logout */
+if ($role && $user_id) {
+    Logger::login(ucfirst($role) . ' logged out', [
+        'role'    => $role,
+        'user_id' => $user_id,
+        'ip'      => get_client_ip(),
+    ]);
+}
+
+/* Update user_activity for customer */
+if ($role === 'customer' && !empty($_SESSION['activity_id'])) {
+    try {
+        $upd = $conn->prepare("UPDATE user_activity SET logout_time = NOW(), status = 'Offline' WHERE id = ?");
+        if ($upd) {
+            $upd->bind_param('i', $_SESSION['activity_id']);
+            $upd->execute();
+            $upd->close();
         }
+    } catch (Exception $e) {
+        Logger::error('Failed to update user_activity on logout', ['error' => $e->getMessage()]);
     }
 }
 
-// Determine where to redirect before clearing session
-$isAdmin = !empty($_SESSION['is_admin']);
+/* Log to system_logs for admin/staff */
+if (($role === 'admin' || $role === 'staff') && $user_id) {
+    try {
+        $action = ucfirst($role) . ' Logout';
+        $desc   = ucfirst($role) . " #{$user_id} logged out from IP: " . get_client_ip();
+        $admin_id = ($role === 'admin') ? $user_id : 0;
+        $log = $conn->prepare("INSERT INTO system_logs (admin_id, action, description) VALUES (?, ?, ?)");
+        if ($log) {
+            $log->bind_param('iss', $admin_id, $action, $desc);
+            $log->execute();
+            $log->close();
+        }
+    } catch (Exception $e) {
+        Logger::error('Failed to insert system log on logout', ['error' => $e->getMessage()]);
+    }
+}
 
-// Clear session
-$_SESSION = array();
+/* 🆕 Clear ONLY this role's session */
+$_SESSION = [];
+
 if (ini_get("session.use_cookies")) {
     $params = session_get_cookie_params();
-    setcookie(session_name(), '', time() - 42000,
-        $params["path"], $params["domain"],
-        $params["secure"], $params["httponly"]
+    setcookie(
+        session_name(),          // ← ONLY this session name
+        '',
+        time() - 42000,
+        $params["path"],
+        $params["domain"],
+        $params["secure"],
+        $params["httponly"]
     );
 }
+
 session_destroy();
 
-// Redirect admins to admin login, customers to customer login
-header('Location: ' . ($isAdmin ? 'admin_login.php' : 'login.php'));
-exit();
+/* Clear remember-me cookie for this role only */
+$remember_cookies = [
+    'admin'    => 'wf_remember_admin',
+    'staff'    => 'wf_remember_staff',
+    'customer' => 'wf_remember_customer',
+];
+if ($role && isset($remember_cookies[$role]) && isset($_COOKIE[$remember_cookies[$role]])) {
+    setcookie($remember_cookies[$role], '', time() - 3600, '/');
+}
 
+header('Location: ' . $redirect_url);
+exit();
+?>
