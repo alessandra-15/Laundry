@@ -1,8 +1,7 @@
 <?php
 /**
  * staff_login.php
- * WashFlow — Staff Login (Card Split Screen)
- * Direct URL access only.
+ * WashFlow — Staff Login (now redirects to unified login)
  */
 define('APP_STARTED', true);
 require_once 'session_config.php';
@@ -12,12 +11,17 @@ require_once 'rate_limiter.php';
 require_once 'logger.php';
 require_once 'functions.php';
 
-/* 🆕 Check kung may naka-login na — using unified helper */
+/* Check if already logged in as staff or admin */
 $cu = current_user();
 if ($cu && in_array($cu['type'], ['admin', 'staff'], true)) {
     header('Location: staff_dashboard.php');
     exit();
 }
+
+/* Redirect all other visitors to the unified login page */
+header('Location: login.php');
+exit();
+
 
 $error_message = '';
 $username_value = '';

@@ -1,8 +1,7 @@
 <?php
 /**
  * admin_login.php
- * WashFlow — Admin Login (Card Split Screen)
- * Direct URL access only.
+ * WashFlow — Admin Login (now redirects to unified login)
  */
 define('APP_STARTED', true);
 require_once 'session_config.php';
@@ -12,12 +11,17 @@ require_once 'rate_limiter.php';
 require_once 'logger.php';
 require_once 'functions.php';
 
-/* 🆕 Check kung may naka-login na — using unified helper */
+/* Check if already logged in as admin */
 $cu = current_user();
 if ($cu && $cu['type'] === 'admin') {
     header('Location: dashboard.php');
     exit();
 }
+
+/* Redirect all other visitors to the unified login page */
+header('Location: login.php');
+exit();
+
 // Kung staff ang naka-login, hindi natin i-redirect — hayaan mag-login as admin
 
 $error_message = '';

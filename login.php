@@ -40,74 +40,119 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             if ($email === '' || $password === '') {
                 $error_message = 'Please fill in all fields.';
-            } elseif (!validate_email($email)) {
-                $error_message = 'Invalid email format.';
             } else {
-                $stmt = $conn->prepare("SELECT * FROM customer_info WHERE email = ? LIMIT 1");
+                $user_found = false;
+                $user_role = '';
+                $user_data = null;
+                $table = '';
+                $id_field = '';
 
-                if (!$stmt) {
-                    Logger::error('Prepare failed on login', ['error' => $conn->error]);
-                    $error_message = 'System error. Please try again.';
-                } else {
+                // 1. Try Customer (Email)
+                $stmt = $conn->prepare("SELECT * FROM customer_info WHERE email = ? LIMIT 1");
+                if ($stmt) {
                     $stmt->bind_param('s', $email);
                     $stmt->execute();
                     $res = $stmt->get_result();
-
                     if ($user = $res->fetch_assoc()) {
-                        $dbPass = $user['password'] ?? '';
-                        $authenticated = false;
+                        $user_found = true;
+                        $user_role = 'customer';
+                        $user_data = $user;
+                        $table = 'customer_info';
+                        $id_field = 'Customer_ID';
+                    }
+                    $stmt->close();
+                }
 
-                        if (!empty($dbPass) && password_verify($password, $dbPass)) {
-                            $authenticated = true;
-                            if (password_needs_rehash($dbPass, PASSWORD_DEFAULT)) {
-                                $newHash = password_hash($password, PASSWORD_DEFAULT);
-                                $up = $conn->prepare("UPDATE customer_info SET password = ? WHERE Customer_ID = ?");
-                                if ($up) {
-                                    $up->bind_param('si', $newHash, $user['Customer_ID']);
-                                    $up->execute();
-                                    $up->close();
-                                }
-                            }
-                        } elseif ($password === $dbPass) {
-                            $authenticated = true;
+                // 2. Try Staff (Username)
+                if (!$user_found) {
+                    $stmt = $conn->prepare("SELECT * FROM staff WHERE username = ? LIMIT 1");
+                    if ($stmt) {
+                        $stmt->bind_param('s', $email);
+                        $stmt->execute();
+                        $res = $stmt->get_result();
+                        if ($user = $res->fetch_assoc()) {
+                            $user_found = true;
+                            $user_role = 'staff';
+                            $user_data = $user;
+                            $table = 'staff';
+                            $id_field = 'Staff_ID';
+                        }
+                        $stmt->close();
+                    }
+                }
+
+                // 3. Try Admin (Username)
+                if (!$user_found) {
+                    $stmt = $conn->prepare("SELECT * FROM admin WHERE username = ? LIMIT 1");
+                    if ($stmt) {
+                        $stmt->bind_param('s', $email);
+                        $stmt->execute();
+                        $res = $stmt->get_result();
+                        if ($user = $res->fetch_assoc()) {
+                            $user_found = true;
+                            $user_role = 'admin';
+                            $user_data = $user;
+                            $table = 'admin';
+                            $id_field = 'Admin_ID';
+                        }
+                        $stmt->close();
+                    }
+                }
+
+                if ($user_found) {
+                    $dbPass = $user_data['password'] ?? '';
+                    $authenticated = false;
+
+                    if (!empty($dbPass) && password_verify($password, $dbPass)) {
+                        $authenticated = true;
+                        if (password_needs_rehash($dbPass, PASSWORD_DEFAULT)) {
                             $newHash = password_hash($password, PASSWORD_DEFAULT);
-                            $up = $conn->prepare("UPDATE customer_info SET password = ? WHERE Customer_ID = ?");
+                            $up = $conn->prepare("UPDATE {$table} SET password = ? WHERE {$id_field} = ?");
                             if ($up) {
-                                $up->bind_param('si', $newHash, $user['Customer_ID']);
+                                $up->bind_param('si', $newHash, $user_data[$id_field]);
                                 $up->execute();
                                 $up->close();
-                                Logger::info('Customer password upgraded', ['customer_id' => $user['Customer_ID']]);
                             }
                         }
+                    } elseif ($password === $dbPass) {
+                        $authenticated = true;
+                        $newHash = password_hash($password, PASSWORD_DEFAULT);
+                        $up = $conn->prepare("UPDATE {$table} SET password = ? WHERE {$id_field} = ?");
+                        if ($up) {
+                            $up->bind_param('si', $newHash, $user_data[$id_field]);
+                            $up->execute();
+                            $up->close();
+                            Logger::info(ucfirst($user_role) . ' password upgraded', ["{$user_role}_id" => $user_data[$id_field]]);
+                        }
+                    }
 
-                        if ($authenticated) {
-                            clear_rate_limit($rate_key);
+                    if ($authenticated) {
+                        clear_rate_limit($rate_key);
+                        
+                        if ($user_role === 'customer') {
                             session_regenerate_id(true);
-
-                            /* 🆕 Clear ALL previous login data + set new */
                             set_login_session(
                                 'customer',
-                                (int)$user['Customer_ID'],
-                                trim(($user['first_name'] ?? '') . ' ' . ($user['last_name'] ?? '')),
+                                (int)$user_data['Customer_ID'],
+                                trim(($user_data['first_name'] ?? '') . ' ' . ($user_data['last_name'] ?? '')),
                                 'Customer',
                                 [
-                                    'first_name' => $user['first_name'] ?? '',
-                                    'last_name'  => $user['last_name']  ?? '',
-                                    'email'      => $user['email']      ?? '',
+                                    'first_name' => $user_data['first_name'] ?? '',
+                                    'last_name'  => $user_data['last_name']  ?? '',
+                                    'email'      => $user_data['email']      ?? '',
                                 ]
                             );
 
-                            /* Log user activity */
                             $status = 'Online';
                             if ($ins = $conn->prepare("INSERT INTO user_activity (customer_id, login_time, status) VALUES (?, NOW(), ?)")) {
-                                $ins->bind_param('is', $user['Customer_ID'], $status);
+                                $ins->bind_param('is', $user_data['Customer_ID'], $status);
                                 $ins->execute();
                                 $_SESSION['activity_id'] = $conn->insert_id;
                                 $ins->close();
                             }
 
                             Logger::login('Customer logged in', [
-                                'customer_id' => $user['Customer_ID'],
+                                'customer_id' => $user_data['Customer_ID'],
                                 'email' => $email,
                                 'ip' => get_client_ip()
                             ]);
@@ -116,18 +161,58 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             if (!preg_match('/^[a-zA-Z0-9_\-\/]+\.php(\?.*)?$/', $redirect)) {
                                 $redirect = 'userdashboard.php';
                             }
-
                             header("Location: " . $redirect);
                             exit();
-                        } else {
-                            Logger::security('Failed login - wrong password', ['email' => $email, 'ip' => get_client_ip()]);
-                            $error_message = 'Invalid email or password. Please try again.';
+                        } elseif ($user_role === 'staff') {
+                            session_write_close();
+                            session_name('LAUNDRY_STAFF');
+                            session_start();
+                            session_regenerate_id(true);
+                            
+                            set_login_session(
+                                'staff',
+                                (int)$user_data['Staff_ID'],
+                                trim($user_data['full_name'] ?? $user_data['username']),
+                                trim($user_data['role'] ?? 'Staff'),
+                                ['username' => $user_data['username'] ?? '']
+                            );
+                            
+                            Logger::login('Staff logged in', [
+                                'staff_id' => $user_data['Staff_ID'],
+                                'username' => $user_data['username'],
+                                'role' => $user_data['role'] ?? '',
+                                'ip' => get_client_ip()
+                            ]);
+                            header("Location: staff_dashboard.php");
+                            exit();
+                        } elseif ($user_role === 'admin') {
+                            session_write_close();
+                            session_name('LAUNDRY_ADMIN');
+                            session_start();
+                            session_regenerate_id(true);
+                            
+                            set_login_session(
+                                'admin',
+                                (int)$user_data['Admin_ID'],
+                                trim($user_data['username']),
+                                'Administrator'
+                            );
+                            
+                            Logger::login('Admin logged in', [
+                                'admin_id' => $user_data['Admin_ID'],
+                                'username' => $user_data['username'],
+                                'ip' => get_client_ip()
+                            ]);
+                            header("Location: dashboard.php");
+                            exit();
                         }
                     } else {
-                        Logger::security('Failed login - user not found', ['email' => $email, 'ip' => get_client_ip()]);
-                        $error_message = 'Invalid email or password. Please try again.';
+                        Logger::security('Failed login - wrong password', ['input' => $email, 'ip' => get_client_ip()]);
+                        $error_message = 'Invalid credentials. Please try again.';
                     }
-                    $stmt->close();
+                } else {
+                    Logger::security('Failed login - user not found', ['input' => $email, 'ip' => get_client_ip()]);
+                    $error_message = 'Invalid credentials. Please try again.';
                 }
             }
         }
@@ -800,13 +885,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <?= csrf_field() ?>
 
                         <div class="wf-form-group">
-                            <label class="wf-form-label" for="wfEmail">Email Address</label>
+                            <label class="wf-form-label" for="wfEmail">Email or Username</label>
                             <div class="wf-input-wrap">
-                                <i class="fas fa-envelope wf-input-icon"></i>
-                                <input type="email" class="wf-form-control" id="wfEmail" name="email"
-                                       placeholder="you@example.com"
+                                <i class="fas fa-user wf-input-icon"></i>
+                                <input type="text" class="wf-form-control" id="wfEmail" name="email"
+                                       placeholder="Email or Username"
                                        value="<?= e($email_value) ?>"
-                                       autocomplete="email" required>
+                                       autocomplete="username" required>
                             </div>
                         </div>
 
