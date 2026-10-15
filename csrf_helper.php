@@ -16,6 +16,15 @@ function generate_csrf_token() {
 }
 
 /**
+ * Alias of generate_csrf_token() (used in inline JS)
+ */
+if (!function_exists('csrf_token')) {
+    function csrf_token() {
+        return generate_csrf_token();
+    }
+}
+
+/**
  * Validate CSRF token
  */
 function validate_csrf_token($token) {

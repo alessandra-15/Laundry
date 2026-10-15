@@ -14,6 +14,7 @@ require_once 'session_config.php';
 require_once 'db_connect.php';
 require_once 'logger.php';
 require_once 'functions.php';
+require_once 'csrf_helper.php';
 require_once 'notifications_helper.php';
 
 require_customer_login();
@@ -91,7 +92,7 @@ try {
     $stats['unpaid_count'] = (int)($stmt->get_result()->fetch_assoc()['c'] ?? 0);
     $stmt->close();
 
-} catch (Exception $e) {
+} catch (Throwable $e) {
     Logger::error('Customer stats failed', ['error' => $e->getMessage()]);
 }
 
@@ -116,7 +117,7 @@ try {
     $stmt->execute();
     $recent_bookings = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
     $stmt->close();
-} catch (Exception $e) {
+} catch (Throwable $e) {
     Logger::error('Recent bookings fetch failed', ['error' => $e->getMessage()]);
 }
 
