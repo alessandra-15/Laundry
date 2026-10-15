@@ -14,3 +14,6 @@ uploads/student_ids/*
 !uploads/student_ids/.htaccess
 uploads/payment_proofs/*
 !uploads/payment_proofs/.htaccess
+
+# Full DB export with customer data - never commit
+washflow_live_import.sql
