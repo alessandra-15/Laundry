@@ -949,7 +949,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         <!-- TOP BAR (sa labas ng card) -->
         <div class="wf-topbar">
-            <a href="homepage.php" class="wf-logo">
+            <a href="index.php" class="wf-logo">
                 <div class="wf-logo-mark">
                     <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <defs>
@@ -976,7 +976,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 </div>
             </a>
 
-            <a href="homepage.php" class="wf-btn-back">
+            <a href="index.php" class="wf-btn-back">
                 <i class="fas fa-arrow-left"></i> Back to Home
             </a>
         </div>
@@ -1198,8 +1198,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             <div class="wf-terms">
                                 <input type="checkbox" id="wfTerms" required>
                                 <label for="wfTerms">
-                                    I agree to the <a href="homepage.php#faq" target="_blank">Terms of Service</a>
-                                    and <a href="homepage.php#faq" target="_blank">Privacy Policy</a>.
+                                    I agree to the <a href="index.php#faq" target="_blank">Terms of Service</a>
+                                    and <a href="index.php#faq" target="_blank">Privacy Policy</a>.
                                 </label>
                             </div>
                         </div>

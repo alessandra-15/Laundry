@@ -1,6 +1,6 @@
 <?php
 /**
- * homepage.php
+ * index.php
  * WashFlow — Laundry Management and Booking System
  *
  * Final homepage. Clear navigation, hindi confusing.
@@ -802,7 +802,7 @@ if (isset($_SESSION['user_id']) && isset($_SESSION['role'])) {
     <nav class="wf-navbar sticky-top">
         <div class="container">
             <div class="d-flex align-items-center justify-content-between">
-                <a href="homepage.php" class="wf-logo">
+                <a href="index.php" class="wf-logo">
                     <div class="wf-logo-mark">
                         <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
                             <defs>

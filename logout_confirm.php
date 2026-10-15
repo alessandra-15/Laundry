@@ -341,7 +341,7 @@ $fullName = trim($firstName . ' ' . $lastName);
         </p>
 
         <div class="btn-group-custom">
-            <a href="homepage.php" class="btn-custom btn-logout">
+            <a href="index.php" class="btn-custom btn-logout">
                 <i class="fas fa-sign-out-alt"></i>
                 <span>Yes, Logout</span>
             </a>
@@ -367,7 +367,7 @@ $fullName = trim($firstName . ' ' . $lastName);
         document.querySelector('.btn-logout').addEventListener('click', function(e) {
             e.preventDefault();
             // Clear session and redirect
-            window.location.href = 'homepage.php';
+            window.location.href = 'index.php';
 
         });
     </script>

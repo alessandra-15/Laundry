@@ -769,7 +769,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <div class="wf-page">
 
         <div class="wf-topbar">
-            <a href="homepage.php" class="wf-logo">
+            <a href="index.php" class="wf-logo">
                 <div class="wf-logo-mark">
                     <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <defs>
@@ -796,7 +796,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 </div>
             </a>
 
-            <a href="homepage.php" class="wf-btn-back">
+            <a href="index.php" class="wf-btn-back">
                 <i class="fas fa-arrow-left"></i> Back to Home
             </a>
         </div>

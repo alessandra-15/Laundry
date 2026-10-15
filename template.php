@@ -6,7 +6,7 @@ if (session_status() === PHP_SESSION_NONE) {
 
 // Redirect if not logged in (except for login and register pages)
 $current_page = basename($_SERVER['PHP_SELF']);
-$public_pages = ['login.php', 'register.php', 'homepage.php'];
+$public_pages = ['login.php', 'register.php', 'index.php'];
 
 if (!isset($_SESSION['customer_id']) && !in_array($current_page, $public_pages)) {
     header("Location: login.php");

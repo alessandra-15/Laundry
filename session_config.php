@@ -131,7 +131,7 @@ if (isset($_SESSION['last_activity']) && (time() - $_SESSION['last_activity']) >
     session_start();
     $_SESSION['__role'] = $wf_current_role;
 
-    $public_pages = ['login.php', 'register.php', 'admin_login.php', 'staff_login.php', 'homepage.php', 'index.php'];
+    $public_pages = ['login.php', 'register.php', 'admin_login.php', 'staff_login.php', 'index.php'];
     if (!in_array(basename($_SERVER['PHP_SELF']), $public_pages, true)) {
         if ($expired_role === 'admin') {
             header('Location: admin_login.php?timeout=1');
