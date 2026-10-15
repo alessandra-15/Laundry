@@ -22103,6 +22103,12 @@ ALTER TABLE `booking_online`
   ADD PRIMARY KEY (`id`);
 
 --
+-- Indexes for table `customer_info`
+--
+ALTER TABLE `customer_info`
+  ADD PRIMARY KEY (`Customer_ID`);
+
+--
 -- Indexes for table `complaints`
 --
 ALTER TABLE `complaints`
@@ -22222,6 +22228,12 @@ ALTER TABLE `user_activity`
 --
 ALTER TABLE `booking_online`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=30;
+
+--
+-- AUTO_INCREMENT for table `customer_info`
+--
+ALTER TABLE `customer_info`
+  MODIFY `Customer_ID` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=79;
 
 --
 -- AUTO_INCREMENT for table `employee_salaries`

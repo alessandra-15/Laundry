@@ -178,7 +178,7 @@ if (!function_exists('current_user')) {
             return $cached;
         }
 
-        if (!empty($_SESSION['user_type']) && !empty($_SESSION['user_id'])) {
+        if (!empty($_SESSION['user_type']) && isset($_SESSION['user_id']) && $_SESSION['user_id'] !== '') {
             $cached = [
                 'id'    => (int)$_SESSION['user_id'],
                 'type'  => $_SESSION['user_type'],
@@ -190,7 +190,7 @@ if (!function_exists('current_user')) {
             return $cached;
         }
 
-        if (!empty($_SESSION['customer_id'])) {
+        if (isset($_SESSION['customer_id']) && $_SESSION['customer_id'] !== '') {
             $cached = [
                 'id'    => (int)$_SESSION['customer_id'],
                 'type'  => 'customer',
@@ -202,7 +202,7 @@ if (!function_exists('current_user')) {
             return $cached;
         }
 
-        if (!empty($_SESSION['admin_id']) || !empty($_SESSION['Admin_ID'])) {
+        if (isset($_SESSION['admin_id']) || isset($_SESSION['Admin_ID'])) {
             $id = (int)($_SESSION['admin_id'] ?? $_SESSION['Admin_ID']);
             $cached = [
                 'id'    => $id,
@@ -215,7 +215,7 @@ if (!function_exists('current_user')) {
             return $cached;
         }
 
-        if (!empty($_SESSION['staff_id'])) {
+        if (isset($_SESSION['staff_id']) && $_SESSION['staff_id'] !== '') {
             $cached = [
                 'id'    => (int)$_SESSION['staff_id'],
                 'type'  => 'staff',
