@@ -3,7 +3,7 @@
  * staff_management.php
  * WashFlow — ADMIN Staff Management & Monitoring
  *
- * ✅ Admin-only (session-based auth, same as admin_bookings.php)
+ * ✅ Admin-only (session-based auth, same as admin_booking.php)
  * ✅ List all staff (active/inactive)
  * ✅ Add / Edit / Deactivate / Reactivate staff
  * ✅ Reset staff password
@@ -631,7 +631,7 @@ a { text-decoration:none; }
             </a>
 
             <div class="wf-nav-section-label">Monitoring</div>
-            <a href="admin_bookings.php" class="wf-nav-item">
+            <a href="admin_booking.php" class="wf-nav-item">
                 <i class="fas fa-eye"></i><span>Bookings Monitor</span>
             </a>
             <a href="admin_payments.php" class="wf-nav-item">

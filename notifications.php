@@ -23,63 +23,74 @@ $filter = $_GET['type'] ?? 'all';
 $allowed_types = ['all', 'booking', 'status', 'payment', 'promo', 'system'];
 if (!in_array($filter, $allowed_types, true)) $filter = 'all';
 
-/* Mark single as read (GET link from notification) */
-if (!empty($_GET['read']) && ctype_digit($_GET['read'])) {
-    $nid = (int)$_GET['read'];
-    $stmt = $conn->prepare("UPDATE notifications_user SET is_read=1, read_at=NOW(), status='read' WHERE notif_id=? AND user_id=?");
-    $stmt->bind_param('ii', $nid, $customer_id);
-    $stmt->execute();
-    $stmt->close();
-    header('Location: notifications.php'); exit();
-}
-
-/* Mark all as read */
-if (isset($_POST['mark_all_read']) && validate_csrf_token($_POST['csrf_token'] ?? '')) {
-    $stmt = $conn->prepare("UPDATE notifications_user SET is_read=1, read_at=NOW(), status='read' WHERE user_id=? AND is_read=0");
-    $stmt->bind_param('i', $customer_id);
-    $stmt->execute();
-    $stmt->close();
-    header('Location: notifications.php'); exit();
-}
-
-/* Fetch list */
+$total = 0;
+$items = [];
+$unread_count = 0;
 $per_page = 20;
 $page = max(1, (int)($_GET['page'] ?? 1));
-$offset = ($page - 1) * $per_page;
 
-$where = "user_id = ?";
-$params = [$customer_id];
-$types = 'i';
-if ($filter !== 'all') {
-    $where .= " AND type = ?";
-    $params[] = $filter;
-    $types .= 's';
+try {
+    /* Mark single as read (GET link from notification) */
+    if (!empty($_GET['read']) && ctype_digit($_GET['read'])) {
+        $nid = (int)$_GET['read'];
+        $stmt = $conn->prepare("UPDATE notifications_user SET is_read=1, read_at=NOW(), status='read' WHERE notif_id=? AND user_id=?");
+        $stmt->bind_param('ii', $nid, $customer_id);
+        $stmt->execute();
+        $stmt->close();
+        header('Location: notifications.php'); exit();
+    }
+
+    /* Mark all as read */
+    if (isset($_POST['mark_all_read']) && validate_csrf_token($_POST['csrf_token'] ?? '')) {
+        $stmt = $conn->prepare("UPDATE notifications_user SET is_read=1, read_at=NOW(), status='read' WHERE user_id=? AND is_read=0");
+        $stmt->bind_param('i', $customer_id);
+        $stmt->execute();
+        $stmt->close();
+        header('Location: notifications.php'); exit();
+    }
+
+    /* Fetch list */
+    $per_page = 20;
+    $page = max(1, (int)($_GET['page'] ?? 1));
+    $offset = ($page - 1) * $per_page;
+
+    $where = "user_id = ?";
+    $params = [$customer_id];
+    $types = 'i';
+    if ($filter !== 'all') {
+        $where .= " AND type = ?";
+        $params[] = $filter;
+        $types .= 's';
+    }
+
+    $total = 0;
+    $stmt = $conn->prepare("SELECT COUNT(*) AS c FROM notifications_user WHERE $where");
+    $stmt->bind_param($types, ...$params);
+    $stmt->execute();
+    $total = (int)($stmt->get_result()->fetch_assoc()['c'] ?? 0);
+    $stmt->close();
+
+    $total_pages = max(1, (int)ceil($total / $per_page));
+
+    $stmt = $conn->prepare("
+        SELECT notif_id, title, message, type, icon, link, booking_id, is_read, created_at
+        FROM notifications_user
+        WHERE $where
+        ORDER BY created_at DESC
+        LIMIT ? OFFSET ?
+    ");
+    $bind_types = $types . 'ii';
+    $bind_params = array_merge($params, [$per_page, $offset]);
+    $stmt->bind_param($bind_types, ...$bind_params);
+    $stmt->execute();
+    $items = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+    $stmt->close();
+
+    $unread_count = CustomerNotify::unreadCount($conn, $customer_id);
+} catch (Throwable $e) {
+    Logger::error('Notifications page failed', ['error' => $e->getMessage(), 'db_error' => $conn->error]);
 }
-
-$total = 0;
-$stmt = $conn->prepare("SELECT COUNT(*) AS c FROM notifications_user WHERE $where");
-$stmt->bind_param($types, ...$params);
-$stmt->execute();
-$total = (int)($stmt->get_result()->fetch_assoc()['c'] ?? 0);
-$stmt->close();
-
-$total_pages = max(1, (int)ceil($total / $per_page));
-
-$stmt = $conn->prepare("
-    SELECT notif_id, title, message, type, icon, link, booking_id, is_read, created_at
-    FROM notifications_user
-    WHERE $where
-    ORDER BY created_at DESC
-    LIMIT ? OFFSET ?
-");
-$bind_types = $types . 'ii';
-$bind_params = array_merge($params, [$per_page, $offset]);
-$stmt->bind_param($bind_types, ...$bind_params);
-$stmt->execute();
-$items = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
-$stmt->close();
-
-$unread_count = CustomerNotify::unreadCount($conn, $customer_id);
+$total_pages = $total_pages ?? 1;
 
 function notif_tab_url($type, $page = 1) {
     $qs = http_build_query(['type' => $type, 'page' => $page]);

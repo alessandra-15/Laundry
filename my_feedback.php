@@ -10,12 +10,12 @@ require_once 'db_connect.php';
 require_once 'logger.php';
 require_once 'functions.php';
 
-if (empty($_SESSION['customer_id'])) {
-    header('Location: customer_login.php');
-    exit();
-}
+require_customer_login();
 
-$customer_id   = $_SESSION['customer_id'];
+$customer_id   = (int)($_SESSION['customer_id'] ?? 0);
+if ($customer_id <= 0) {
+    die('Session error: invalid customer ID. Please <a href="logout.php">logout</a> and login again.');
+}
 $customer_name = $_SESSION['customer_name'] ?? $_SESSION['username'] ?? 'Customer';
 
 /* ══════════════════════════════════════════

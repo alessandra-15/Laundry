@@ -991,7 +991,7 @@ function status_badge($status) {
                 </a>
 
                 <div class="wf-nav-section-label">Monitoring</div>
-                <a href="admin_bookings.php" class="wf-nav-item">
+                <a href="admin_booking.php" class="wf-nav-item">
                     <i class="fas fa-eye"></i>
                     <span>Bookings Monitor</span>
                 </a>
@@ -1233,7 +1233,7 @@ function status_badge($status) {
                             <p>Latest activity across the system</p>
                         </div>
                     </div>
-                    <a href="admin_bookings.php" class="wf-card-link">
+                    <a href="admin_booking.php" class="wf-card-link">
                         View All <i class="fas fa-arrow-right"></i>
                     </a>
                 </div>
@@ -1297,7 +1297,7 @@ function status_badge($status) {
                 </div>
 
                 <div class="wf-actions-grid">
-                    <a href="admin_bookings.php" class="wf-action-tile">
+                    <a href="admin_booking.php" class="wf-action-tile">
                         <div class="wf-action-tile-icon"><i class="fas fa-plus-circle"></i></div>
                         <span>New Booking</span>
                     </a>

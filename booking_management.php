@@ -3,7 +3,7 @@
  * booking_management.php
  * WashFlow — STAFF Booking Management (Verify + Execute)
  *
- * ✅ Staff-only (auto-redirect admin → admin_bookings.php, guest → staff_login.php)
+ * ✅ Staff-only (auto-redirect admin → admin_booking.php, guest → staff_login.php)
  * ✅ Walk-in + Online bookings
  * ✅ Verify payments (mark as paid)
  * ✅ Status workflow (Pending → Confirmed/Processing → Ready → Completed)
@@ -21,12 +21,12 @@ require_once 'functions.php';
 
 /* ══════════════════════════════════════════
    AUTH — STAFF ONLY
-   Admin → admin_bookings.php
+   Admin → admin_booking.php
    Guest → staff_login.php
    ══════════════════════════════════════════ */
 if (empty($_SESSION['staff_id'])) {
     if (!empty($_SESSION['admin_id'])) {
-        header('Location: admin_bookings.php');
+        header('Location: admin_booking.php');
         exit();
     }
     header('Location: staff_login.php');

@@ -637,7 +637,7 @@ $rejectedCount  = count(array_filter($schedules, fn($s) => $s['admin_confirmatio
     <ul class="nav flex-column">
       <li class="nav-item"><a href="complaints.php" class="nav-link"><i class="fa fa-exclamation-circle"></i><span class="nav-text">Complaints</span></a></li>
       <li class="nav-item"><a href="employees.php" class="nav-link"><i class="fa fa-user-tie"></i><span class="nav-text">Employees</span></a></li>
-      <li class="nav-item"><a href="admin_feedback.php" class="nav-link"><i class="fa fa-comments"></i><span class="nav-text">Feedback</span></a></li>
+      <li class="nav-item"><a href="feedback.php" class="nav-link"><i class="fa fa-comments"></i><span class="nav-text">Feedback</span></a></li>
     </ul>
 
     <div class="nav-section-title">Account</div>

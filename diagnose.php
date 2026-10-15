@@ -75,6 +75,43 @@ if ($tables && $tables->num_rows > 0) {
     echo "<p class='err'>❌ No tables found in the database! You need to import your SQL schema.</p>";
 }
 
+// 4b. Data health — customer IDs and missing primary keys
+echo "<h2>🩺 Data Health</h2>";
+$r = @$conn->query("SELECT COUNT(*) AS total, SUM(Customer_ID = 0) AS zeros, COUNT(DISTINCT Customer_ID) AS ids FROM customer_info");
+if ($r && ($row = $r->fetch_assoc())) {
+    $cls = ((int)$row['zeros'] > 0 || $row['total'] != $row['ids']) ? 'err' : 'ok';
+    echo "<p class='{$cls}'>customer_info: {$row['total']} rows, {$row['ids']} distinct IDs, " . (int)$row['zeros'] . " rows with Customer_ID = 0</p>";
+}
+$r = @$conn->query("SELECT t.TABLE_NAME FROM information_schema.TABLES t
+    LEFT JOIN information_schema.TABLE_CONSTRAINTS c
+      ON c.TABLE_SCHEMA = t.TABLE_SCHEMA AND c.TABLE_NAME = t.TABLE_NAME AND c.CONSTRAINT_TYPE = 'PRIMARY KEY'
+    WHERE t.TABLE_SCHEMA = DATABASE() AND t.TABLE_TYPE = 'BASE TABLE' AND c.CONSTRAINT_NAME IS NULL");
+if ($r) {
+    $nopk = array_column($r->fetch_all(MYSQLI_NUM), 0);
+    echo $nopk
+        ? "<p class='err'>❌ Tables without PRIMARY KEY (run migrations/004_fix_primary_keys.sql): " . htmlspecialchars(implode(', ', $nopk)) . "</p>"
+        : "<p class='ok'>✅ All tables have a PRIMARY KEY</p>";
+}
+
+// 4c. Run the queries the customer pages use and show any DB error
+echo "<h2>🧪 Page Queries</h2>";
+$test_queries = [
+    'notifications: count'  => "SELECT COUNT(*) FROM notifications_user WHERE user_id = 0 AND type = 'system'",
+    'notifications: list'   => "SELECT notif_id, title, message, type, icon, link, booking_id, is_read, created_at FROM notifications_user WHERE user_id = 0 ORDER BY created_at DESC LIMIT 1",
+    'notifications: update' => "UPDATE notifications_user SET is_read=1, read_at=NOW(), status='read' WHERE notif_id = -1",
+    'dashboard: payments'   => "SELECT COALESCE(SUM(p.amount),0) FROM payments_online p JOIN booking_online b ON p.booking_id = b.id WHERE b.customer_id = 0 AND p.payment_status = 'Paid'",
+    'complaints'            => "SELECT * FROM complaints WHERE customer_id = 0 LIMIT 1",
+    'feedback'              => "SELECT * FROM feedback WHERE user_id = 0 LIMIT 1",
+];
+echo "<table><tr><th>Query</th><th>Result</th></tr>";
+foreach ($test_queries as $label => $sql) {
+    $ok = @$conn->query($sql);
+    echo "<tr><td>" . htmlspecialchars($label) . "</td>" . ($ok
+        ? "<td class='ok'>✅ OK</td>"
+        : "<td class='err'>❌ " . htmlspecialchars($conn->error) . "</td>") . "</tr>";
+}
+echo "</table>";
+
 // 5. Check session_config.php loads
 echo "<h2>🔐 Session Config</h2>";
 try {

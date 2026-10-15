@@ -1,6 +1,6 @@
 <?php
 /**
- * admin_bookings.php
+ * admin_booking.php
  * WashFlow — ADMIN Booking Monitor (READ-ONLY + EMERGENCY CANCEL)
  *
  * ✅ Admin-only (auto-redirect sa admin_login kung hindi admin)
@@ -125,7 +125,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'emerg
     $posted_token = $_POST['csrf_token'] ?? '';
     if (!hash_equals($_SESSION['csrf_token'] ?? '', $posted_token)) {
         $_SESSION['ab_flash'] = ['type' => 'error', 'message' => 'Invalid session token. Please refresh and try again.'];
-        header('Location: admin_bookings.php');
+        header('Location: admin_booking.php');
         exit();
     }
 
@@ -176,7 +176,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'emerg
     }
 
     $_SESSION['ab_flash'] = $flash;
-    header('Location: admin_bookings.php');
+    header('Location: admin_booking.php');
     exit();
 }
 
@@ -475,7 +475,7 @@ function build_url($overrides = []) {
         return true;
     }, ARRAY_FILTER_USE_BOTH);
 
-    return 'admin_bookings.php?' . http_build_query($merged);
+    return 'admin_booking.php?' . http_build_query($merged);
 }
 ?>
 <!DOCTYPE html>
@@ -788,7 +788,7 @@ a { text-decoration:none; }
             </a>
 
             <div class="wf-nav-section-label">Monitoring</div>
-            <a href="admin_bookings.php" class="wf-nav-item active">
+            <a href="admin_booking.php" class="wf-nav-item active">
                 <i class="fas fa-eye"></i><span>Bookings Monitor</span>
             </a>
             <a href="admin_payments.php" class="wf-nav-item">
@@ -932,7 +932,7 @@ a { text-decoration:none; }
         </div>
 
         <!-- FILTERS -->
-        <form method="get" action="admin_bookings.php" class="wf-filter-bar">
+        <form method="get" action="admin_booking.php" class="wf-filter-bar">
             <input type="hidden" name="source" value="<?= e($source_f) ?>">
             <input type="hidden" name="page" value="1">
 
@@ -975,7 +975,7 @@ a { text-decoration:none; }
                 <button type="submit" class="wf-btn wf-btn-primary">
                     <i class="fas fa-search"></i> Filter
                 </button>
-                <a href="admin_bookings.php" class="wf-btn wf-btn-outline">
+                <a href="admin_booking.php" class="wf-btn wf-btn-outline">
                     <i class="fas fa-undo"></i> Reset
                 </a>
             </div>

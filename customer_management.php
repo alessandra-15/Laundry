@@ -1405,7 +1405,7 @@ textarea.wf-form-control { resize: vertical; min-height: 60px; }
             </a>
 
             <div class="wf-nav-section-label">Monitoring</div>
-            <a href="admin_bookings.php" class="wf-nav-item">
+            <a href="admin_booking.php" class="wf-nav-item">
                 <i class="fas fa-eye"></i>
                 <span>Bookings Monitor</span>
             </a>

@@ -1218,7 +1218,7 @@ $rejectedCount = count(array_filter($schedules, function($s) { return $s['admin_
           </a>
         </li>
         <li class="nav-item">
-          <a href="admin_feedback.php" class="nav-link">
+          <a href="feedback.php" class="nav-link">
             <i class="fa fa-comments"></i>
             <span class="nav-text">Feedback</span>
           </a>
