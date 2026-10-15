@@ -15,17 +15,17 @@ $host = $_SERVER['HTTP_HOST'] ?? '';
 $isLocal = (strpos($host, 'localhost') !== false || strpos($host, '127.0.0.1') !== false || (php_sapi_name() === 'cli' && !getenv('DB_HOST')));
 
 if ($isLocal) {
+    // Local development (XAMPP / WAMP / MAMP)
     $servername = getenv('DB_HOST') ?: "localhost";
     $username   = getenv('DB_USER') ?: "root";
     $password   = getenv('DB_PASS') ?: "";
     $database   = getenv('DB_NAME') ?: "laundry_db";
 } else {
     // Live InfinityFree credentials
-    // Note: You can also define these in your InfinityFree cPanel or edit here directly
-    $servername = getenv('DB_HOST') ?: "sql302.infinityfree.com"; // Replace with your MySQL Hostname from InfinityFree
-    $username   = getenv('DB_USER') ?: "if0_38000000";            // Replace with your MySQL Username from InfinityFree
-    $password   = getenv('DB_PASS') ?: "";                        // Replace with your InfinityFree Account/vPanel Password
-    $database   = getenv('DB_NAME') ?: "if0_38000000_laundry_db"; // Replace with your MySQL Database Name
+    $servername = getenv('DB_HOST') ?: "sql207.infinityfree.com";
+    $username   = getenv('DB_USER') ?: "if0_43180724";
+    $password   = getenv('DB_PASS') ?: "0Y3Uae8WUU";
+    $database   = getenv('DB_NAME') ?: "if0_43180724_laundry";
 }
 
 // Suppress uncaught fatal exceptions on connect
