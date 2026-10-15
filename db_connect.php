@@ -17,7 +17,7 @@ $password   = getenv('DB_PASS') ?: "";
 $database   = getenv('DB_NAME') ?: "laundry_db";
 
 // Error reporting mode (development vs production)
-$isDev = getenv('APP_ENV') === 'development' || !getenv('APP_ENV');
+$isDev = getenv('APP_ENV') === 'development';
 
 if ($isDev) {
     mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);

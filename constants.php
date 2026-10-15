@@ -28,7 +28,7 @@ define('SESSION_CUSTOMER_ID', 'customer_id');
    ══════════════════════════════════════════ */
 define('LOGIN_ADMIN',    'admin_login.php');
 define('LOGIN_STAFF',    'staff_login.php');
-define('LOGIN_CUSTOMER', 'customer_login.php');
+define('LOGIN_CUSTOMER', 'login.php');
 
 /* ══════════════════════════════════════════
    DASHBOARD REDIRECTS

@@ -48,54 +48,66 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $id_field = '';
 
                 // 1. Try Customer (Email)
-                $stmt = $conn->prepare("SELECT * FROM customer_info WHERE email = ? LIMIT 1");
-                if ($stmt) {
-                    $stmt->bind_param('s', $email);
-                    $stmt->execute();
-                    $res = $stmt->get_result();
-                    if ($user = $res->fetch_assoc()) {
-                        $user_found = true;
-                        $user_role = 'customer';
-                        $user_data = $user;
-                        $table = 'customer_info';
-                        $id_field = 'Customer_ID';
-                    }
-                    $stmt->close();
-                }
-
-                // 2. Try Staff (Username)
-                if (!$user_found) {
-                    $stmt = $conn->prepare("SELECT * FROM staff WHERE username = ? LIMIT 1");
+                try {
+                    $stmt = $conn->prepare("SELECT * FROM customer_info WHERE email = ? LIMIT 1");
                     if ($stmt) {
                         $stmt->bind_param('s', $email);
                         $stmt->execute();
                         $res = $stmt->get_result();
                         if ($user = $res->fetch_assoc()) {
                             $user_found = true;
-                            $user_role = 'staff';
+                            $user_role = 'customer';
                             $user_data = $user;
-                            $table = 'staff';
-                            $id_field = 'Staff_ID';
+                            $table = 'customer_info';
+                            $id_field = 'Customer_ID';
                         }
                         $stmt->close();
+                    }
+                } catch (Throwable $e) {
+                    Logger::error('Customer query error', ['error' => $e->getMessage()]);
+                }
+
+                // 2. Try Staff (Username)
+                if (!$user_found) {
+                    try {
+                        $stmt = $conn->prepare("SELECT * FROM staff WHERE username = ? LIMIT 1");
+                        if ($stmt) {
+                            $stmt->bind_param('s', $email);
+                            $stmt->execute();
+                            $res = $stmt->get_result();
+                            if ($user = $res->fetch_assoc()) {
+                                $user_found = true;
+                                $user_role = 'staff';
+                                $user_data = $user;
+                                $table = 'staff';
+                                $id_field = 'Staff_ID';
+                            }
+                            $stmt->close();
+                        }
+                    } catch (Throwable $e) {
+                        Logger::warning('Staff table lookup failed', ['error' => $e->getMessage()]);
                     }
                 }
 
                 // 3. Try Admin (Username)
                 if (!$user_found) {
-                    $stmt = $conn->prepare("SELECT * FROM admin WHERE username = ? LIMIT 1");
-                    if ($stmt) {
-                        $stmt->bind_param('s', $email);
-                        $stmt->execute();
-                        $res = $stmt->get_result();
-                        if ($user = $res->fetch_assoc()) {
-                            $user_found = true;
-                            $user_role = 'admin';
-                            $user_data = $user;
-                            $table = 'admin';
-                            $id_field = 'Admin_ID';
+                    try {
+                        $stmt = $conn->prepare("SELECT * FROM admin WHERE username = ? LIMIT 1");
+                        if ($stmt) {
+                            $stmt->bind_param('s', $email);
+                            $stmt->execute();
+                            $res = $stmt->get_result();
+                            if ($user = $res->fetch_assoc()) {
+                                $user_found = true;
+                                $user_role = 'admin';
+                                $user_data = $user;
+                                $table = 'admin';
+                                $id_field = 'Admin_ID';
+                            }
+                            $stmt->close();
                         }
-                        $stmt->close();
+                    } catch (Throwable $e) {
+                        Logger::warning('Admin table lookup failed', ['error' => $e->getMessage()]);
                     }
                 }
 
@@ -143,12 +155,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 ]
                             );
 
-                            $status = 'Online';
-                            if ($ins = $conn->prepare("INSERT INTO user_activity (customer_id, login_time, status) VALUES (?, NOW(), ?)")) {
-                                $ins->bind_param('is', $user_data['Customer_ID'], $status);
-                                $ins->execute();
-                                $_SESSION['activity_id'] = $conn->insert_id;
-                                $ins->close();
+                            try {
+                                $status = 'Online';
+                                if ($ins = $conn->prepare("INSERT INTO user_activity (customer_id, login_time, status) VALUES (?, NOW(), ?)")) {
+                                    $ins->bind_param('is', $user_data['Customer_ID'], $status);
+                                    $ins->execute();
+                                    $_SESSION['activity_id'] = $conn->insert_id;
+                                    $ins->close();
+                                }
+                            } catch (Throwable $e) {
+                                Logger::warning('user_activity record failed', ['error' => $e->getMessage()]);
                             }
 
                             Logger::login('Customer logged in', [

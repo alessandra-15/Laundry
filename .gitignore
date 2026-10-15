@@ -1,0 +1,16 @@
+# Logs
+logs/*.log
+!logs/.htaccess
+
+# Python / Tests
+__pycache__/
+*.pyc
+.pytest_cache/
+test-results/
+
+# Environment / Temp
+.env
+uploads/student_ids/*
+!uploads/student_ids/.htaccess
+uploads/payment_proofs/*
+!uploads/payment_proofs/.htaccess
