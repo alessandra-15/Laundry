@@ -123,8 +123,17 @@ try {
 /* ══════════════════════════════════════════
    UNREAD NOTIFICATIONS
    ══════════════════════════════════════════ */
-$unread_count = CustomerNotify::unreadCount($conn, $customer_id);
-$recent_notifs = CustomerNotify::recent($conn, $customer_id, 5);
+$unread_count = 0;
+$recent_notifs = [];
+try {
+    $unread_count = CustomerNotify::unreadCount($conn, $customer_id);
+    $recent_notifs = CustomerNotify::recent($conn, $customer_id, 5);
+} catch (Throwable $e) {
+    // notifications_user table may not exist yet
+    if (class_exists('Logger')) {
+        Logger::warning('Notifications load failed', ['error' => $e->getMessage()]);
+    }
+}
 
 /* ══════════════════════════════════════════
    HELPERS
