@@ -1,0 +1,6 @@
+# WashFlow Appium Test Suite — Requirements
+# Install with: pip install -r requirements.txt
+
+Appium-Python-Client>=4.0.0
+pytest>=8.0.0
+selenium>=4.20.0
