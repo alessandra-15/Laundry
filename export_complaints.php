@@ -1,4 +1,11 @@
 <?php
+require_once __DIR__ . '/session_config.php';
+
+if (empty($_SESSION['admin_id']) || empty($_SESSION['is_admin'])) {
+    header('Location: admin_login.php');
+    exit;
+}
+
 include 'db_connect.php';
 
 // Check if user confirmed export
@@ -8,7 +15,7 @@ if (isset($_GET['confirm']) && $_GET['confirm'] === 'yes') {
     header('Content-Disposition: attachment; filename=complaints_report_' . date("Y-m-d") . '.csv');
 
     $output = fopen('php://output', 'w');
-    fputcsv($output, ['Complaint ID', 'Customer ID', 'Issue Description', 'Status', 'Date Reported', 'Date Resolved', 'Remarks', 'Handled By']);
+    fputcsv($output, ['Complaint ID', 'Customer ID', 'Issue Description', 'Status', 'Date Reported', 'Date Resolved', 'Remarks', 'Handled By'], ',', '"', '');
 
     $query = "SELECT complaint_id, customer_id, issue_description, status, date_reported, date_resolved, remarks, handled_by 
               FROM complaints ORDER BY date_reported DESC";
@@ -16,7 +23,7 @@ if (isset($_GET['confirm']) && $_GET['confirm'] === 'yes') {
 
     if ($result && mysqli_num_rows($result) > 0) {
         while ($row = mysqli_fetch_assoc($result)) {
-            fputcsv($output, $row);
+            fputcsv($output, $row, ',', '"', '');
         }
     }
 

@@ -1,6 +1,6 @@
 <?php
 // suppliers.php — MangTV Supplier Management
-session_start();
+require_once __DIR__ . '/session_config.php';
 include 'db_connect.php';
 // ── Admin session guard ──────────────────────────────────────────────────────
 if (empty($_SESSION['admin_id']) || empty($_SESSION['is_admin'])) {

@@ -1,5 +1,5 @@
 <?php
-session_start();
+require_once __DIR__ . '/session_config.php';
 // digital_record.php — MangTV Digital Records with Advanced Filters
 include 'db_connect.php';
 

@@ -129,7 +129,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         $out = fopen('php://output', 'w');
         fputs($out, "\xEF\xBB\xBF");
 
-        fputcsv($out, ['ID', 'Customer', 'Issue', 'Status', 'Date Reported', 'Date Resolved', 'Remarks', 'Handled By']);
+        fputcsv($out, ['ID', 'Customer', 'Issue', 'Status', 'Date Reported', 'Date Resolved', 'Remarks', 'Handled By'], ',', '"', '');
 
         $where = ["1=1"];
         $params = [];
@@ -167,7 +167,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 $r['date_resolved'] ?: '—',
                 $r['remarks'] ?: '',
                 $r['handled_by'] ?: ''
-            ]);
+            ], ',', '"', '');
         }
         $stmt->close();
         fclose($out);

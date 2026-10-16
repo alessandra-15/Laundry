@@ -10,7 +10,7 @@
 //     body: `transaction_id=${id}&payment_status=Paid`
 //   }).then(r => r.json()).then(data => { ... });
 
-session_start();
+require_once __DIR__ . '/session_config.php';
 header('Content-Type: application/json');
 
 include 'db_connect.php';

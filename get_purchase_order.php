@@ -1,5 +1,12 @@
 <?php
 header('Content-Type: application/json');
+require_once __DIR__ . '/session_config.php';
+
+if (empty($_SESSION['admin_id']) || empty($_SESSION['is_admin'])) {
+    http_response_code(401);
+    echo json_encode(['success' => false, 'message' => 'Unauthorized']);
+    exit;
+}
 include 'db_connect.php';
 
 $po_id = isset($_GET['id']) ? intval($_GET['id']) : 0;

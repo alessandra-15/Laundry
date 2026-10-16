@@ -270,7 +270,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         $out = fopen('php://output', 'w');
         fputs($out, "\xEF\xBB\xBF");
 
-        fputcsv($out, ['ID','First Name','Last Name','Email','Contact','Address','Account Type','Discount Rate','Registered','Bookings','Total Spent']);
+        fputcsv($out, ['ID','First Name','Last Name','Email','Contact','Address','Account Type','Discount Rate','Registered','Bookings','Total Spent'], ',', '"', '');
 
         $q = $conn->query("
             SELECT c.Customer_ID, c.first_name, c.last_name, c.email, c.contact_number,
@@ -295,7 +295,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 $r['register_date'] ?? '',
                 ((int)$r['walkin_count'] + (int)$r['online_count']),
                 number_format((float)$r['walkin_spent'] + (float)$r['online_spent'], 2, '.', '')
-            ]);
+            ], ',', '"', '');
         }
         fclose($out);
         exit();

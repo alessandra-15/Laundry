@@ -15,6 +15,19 @@ jobs:
         with:
           fetch-depth: 2
 
+      - name: 🔑 Write database config from secrets
+        env:
+          DB_HOST: ${{ secrets.DB_HOST }}
+          DB_USER: ${{ secrets.DB_USER }}
+          DB_PASS: ${{ secrets.DB_PASS }}
+          DB_NAME: ${{ secrets.DB_NAME }}
+        run: |
+          if [ -z "$DB_PASS" ]; then
+            echo "DB secrets not set; db_connect.php will use its built-in fallback."
+            exit 0
+          fi
+          php -r 'file_put_contents("db_config.php", "<?php\nif (basename(\$_SERVER[\"PHP_SELF\"] ?? \"\") === \"db_config.php\") { http_response_code(403); exit; }\nreturn " . var_export(["host" => getenv("DB_HOST"), "user" => getenv("DB_USER"), "pass" => getenv("DB_PASS"), "name" => getenv("DB_NAME")], true) . ";\n");'
+
       - name: 📂 Sync files via FTP
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:

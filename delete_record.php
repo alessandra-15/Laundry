@@ -3,7 +3,7 @@
 // Deletes transaction + tracking + schedule. Accepts POST (recommended) or GET with confirm=1 for backward compatibility.
 // Returns JSON for AJAX (X-Requested-With) or redirects for normal POST.
 
-session_start();
+require_once __DIR__ . '/session_config.php';
 include 'db_connect.php';
 
 // Admin session guard

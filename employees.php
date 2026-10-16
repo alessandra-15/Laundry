@@ -1,5 +1,5 @@
 <?php
-session_start();
+require_once __DIR__ . '/session_config.php';
 // employees.php — MangTV Admin (Redesigned with Dashboard consistency)
 include 'db_connect.php';
 // ── Admin session guard ──────────────────────────────────────────────────────

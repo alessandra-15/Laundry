@@ -1,7 +1,7 @@
 <?php
 $page_title = "Payment - Mang TV Laundry Shop";
 include 'db_connect.php';
-$session_started = session_start();
+require_once __DIR__ . '/session_config.php';
 
 // Require authentication for all requests
 if (!isset($_SESSION['customer_id'])) {

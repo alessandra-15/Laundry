@@ -1,5 +1,5 @@
 <?php
-session_start();
+require_once __DIR__ . '/session_config.php';
 include 'db_connect.php';
 // ── Admin session guard ──────────────────────────────────────────────────────
 if (empty($_SESSION['admin_id']) || empty($_SESSION['is_admin'])) {
@@ -19,7 +19,7 @@ if(isset($_POST['add_product'])){
     if($p_name == '' || $p_stock < 0 || $p_cost <= 0){
         $add_msg = "Please provide valid product info.";
     } else {
-        $insert = "INSERT INTO products_inventory (product_name, stock, cost) VALUES ('$p_name', '$p_stock', '$p_cost')";
+        $insert = "INSERT INTO products_inventory (product_name, stock, unit_cost) VALUES ('$p_name', '$p_stock', '$p_cost')";
         if($conn->query($insert)){
             header("Location: products_inventory.php");
             exit;
@@ -144,14 +144,13 @@ main.expanded { margin-left:90px; }
           </thead>
           <tbody>
             <?php
-session_start();
             if($productsQ && $productsQ->num_rows>0){
               while($row=$productsQ->fetch_assoc()){
                 echo "<tr>
                         <td>{$row['product_name']}</td>
                         <td>{$row['stock']}</td>
-                        <td>₱".number_format($row['cost'],2)."</td>
-                        <td>₱".number_format($row['stock']*$row['cost'],2)."</td>
+                        <td>₱".number_format($row['unit_cost'],2)."</td>
+                        <td>₱".number_format($row['stock']*$row['unit_cost'],2)."</td>
                         <td>
                           <form method='post' class='d-flex gap-1'>
                             <input type='hidden' name='product_id' value='{$row['id']}'>

@@ -17,3 +17,6 @@ uploads/payment_proofs/*
 
 # Full DB export with customer data - never commit
 washflow_live_import.sql
+
+# Generated at deploy time from GitHub secrets
+db_config.php

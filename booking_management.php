@@ -369,7 +369,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         fputs($out, "\xEF\xBB\xBF");
 
         if ($type === 'walkin') {
-            fputcsv($out, ['Booking ID','Customer','Contact','Service','Add-ons','Pick/Deliver','Status','Total','Date']);
+            fputcsv($out, ['Booking ID','Customer','Contact','Service','Add-ons','Pick/Deliver','Status','Total','Date'], ',', '"', '');
             $q = $conn->query("
                 SELECT b.Booking_ID, b.service, b.add_ons, b.pick_deliver, b.status,
                        b.total_amount, b.booking_date,
@@ -390,10 +390,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                     $r['status'] ?? 'Pending',
                     number_format((float)$r['total_amount'], 2, '.', ''),
                     $r['booking_date'] ?? ''
-                ]);
+                ], ',', '"', '');
             }
         } else {
-            fputcsv($out, ['ID','Customer','Contact','Service','Add-ons','Delivery','Status','Payment','Total','Date']);
+            fputcsv($out, ['ID','Customer','Contact','Service','Add-ons','Delivery','Status','Payment','Total','Date'], ',', '"', '');
             $q = $conn->query("
                 SELECT b.id, b.customer_name, b.contact_number, b.service, b.addons,
                        b.delivery_option, b.status, b.total_amount, b.timestamp,
@@ -414,7 +414,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                     $r['payment_status'] ?? 'No Payment',
                     number_format((float)$r['total_amount'], 2, '.', ''),
                     $r['timestamp'] ?? ''
-                ]);
+                ], ',', '"', '');
             }
         }
         fclose($out);

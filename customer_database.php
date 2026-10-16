@@ -1,6 +1,6 @@
 <?php
 // customer_database.php — MangTV Customer Database with Notification System
-session_start();
+require_once __DIR__ . '/session_config.php';
 include 'db_connect.php';
 
 // Admin session guard

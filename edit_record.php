@@ -1,6 +1,6 @@
 <?php
 // edit_record.php — modal form fragment for edit (GET) and update handler (POST)
-session_start();
+require_once __DIR__ . '/session_config.php';
 include 'db_connect.php';
 include_once 'user_notif_helpers.php';
 

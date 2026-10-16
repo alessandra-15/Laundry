@@ -1,6 +1,6 @@
 <?php
 include 'db_connect.php';
-session_start();
+require_once __DIR__ . '/session_config.php';
 
 if (!isset($_SESSION['customer_id'])) {
     header("Location: login.php");

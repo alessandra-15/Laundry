@@ -1,5 +1,5 @@
 <?php
-session_start();
+require_once __DIR__ . '/session_config.php';
 include 'db_connect.php';
 
 if (!isset($_GET['ref']) || !isset($_SESSION['customer_id'])) {

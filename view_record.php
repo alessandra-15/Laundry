@@ -2,6 +2,14 @@
 // view_record.php — returns an HTML fragment (not a full page) for modal injection
 // Expects GET id=Transaction_ID
 
+require_once __DIR__ . '/session_config.php';
+
+if (empty($_SESSION['admin_id']) || empty($_SESSION['is_admin'])) {
+    http_response_code(401);
+    echo '<div class="alert alert-danger">Unauthorized.</div>';
+    exit;
+}
+
 include 'db_connect.php';
 
 $transactionId = isset($_GET['id']) ? intval($_GET['id']) : 0;

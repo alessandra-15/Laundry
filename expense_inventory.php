@@ -1,5 +1,5 @@
 <?php
-session_start();
+require_once __DIR__ . '/session_config.php';
 include 'db_connect.php';
 // ── Admin session guard ──────────────────────────────────────────────────────
 if (empty($_SESSION['admin_id']) || empty($_SESSION['is_admin'])) {
@@ -130,7 +130,6 @@ main.expanded { margin-left: 90px; }
             </thead>
             <tbody>
               <?php
-session_start();
               if ($items && $items->num_rows > 0) {
                 while ($inv = $items->fetch_assoc()) {
                   echo "<tr>

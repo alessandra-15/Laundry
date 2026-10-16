@@ -4,7 +4,7 @@ $page_header = "Book Your Laundry Service";
 $page_description = "Select your services and schedule your laundry pickup";
 
 include 'db_connect.php';
-session_start();
+require_once __DIR__ . '/session_config.php';
 
 $booking_error = '';
 $account_type = '';
