@@ -536,7 +536,6 @@ a { text-decoration: none; }
                                 <th>Amount</th>
                                 <th>Status</th>
                                 <th>Payment</th>
-                                <th style="text-align:right;">Action</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -544,8 +543,8 @@ a { text-decoration: none; }
                                 $badge = status_pill($b['status']);
                                 $pb = pay_pill($b['payment_status']);
                             ?>
-                            <tr>
-                                <td><span class="wf-booking-id">#<?= e($b['id']) ?></span></td>
+                            <tr data-href="booking_details.php?id=<?= (int)$b['id'] ?>">
+                                <td><a href="booking_details.php?id=<?= (int)$b['id'] ?>" class="wf-booking-id">#<?= e($b['id']) ?></a></td>
                                 <td>
                                     <div class="wf-service-text"><?= e($b['service'] ?: '—') ?></div>
                                     <?php if (!empty($b['addons'])): ?>
@@ -563,11 +562,6 @@ a { text-decoration: none; }
                                     <span class="wf-badge" style="color:<?= $pb['color'] ?>;background:<?= $pb['bg'] ?>;">
                                         <span class="wf-badge-dot"></span> <?= e($pb['label']) ?>
                                     </span>
-                                </td>
-                                <td style="text-align:right;">
-                                    <a href="booking_details.php?id=<?= (int)$b['id'] ?>" class="wf-icon-btn" title="View details">
-                                        <i class="fas fa-eye"></i>
-                                    </a>
                                 </td>
                             </tr>
                             <?php endforeach; ?>
@@ -623,5 +617,6 @@ a { text-decoration: none; }
 })();
 </script>
 
+<script src="row_click.js"></script>
 </body>
 </html>

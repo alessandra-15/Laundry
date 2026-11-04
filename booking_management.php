@@ -18,6 +18,7 @@ require_once 'session_config.php';
 require_once 'db_connect.php';
 require_once 'logger.php';
 require_once 'functions.php';
+require_once 'booking_sync.php';
 
 /* ══════════════════════════════════════════
    AUTH — STAFF ONLY
@@ -228,17 +229,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         $allowed_online = ['Pending','Processing','Ready','Completed','Cancelled'];
 
         $ok = false;
+        $blocked = false;
         try {
-            if ($type === 'walkin' && in_array($status, $allowed_walkin, true)) {
+            $blocked = $status === 'Completed'
+                && in_array($type, ['walkin', 'online'], true)
+                && !wf_booking_has_payment($conn, $type, $id);
+
+            if ($blocked) {
+                $ok = false;
+            } elseif ($type === 'walkin' && in_array($status, $allowed_walkin, true)) {
                 $stmt = $conn->prepare("UPDATE booking SET status = ? WHERE Booking_ID = ?");
                 $stmt->bind_param('si', $status, $id);
                 $ok = $stmt->execute();
                 $stmt->close();
             } elseif ($type === 'online' && in_array($status, $allowed_online, true)) {
-                $stmt = $conn->prepare("UPDATE booking_online SET status = ? WHERE id = ?");
-                $stmt->bind_param('si', $status, $id);
+                $stmt = $conn->prepare("UPDATE booking_online SET status = ?, completed_at = IF(? = 'Completed', NOW(), completed_at) WHERE id = ?");
+                $stmt->bind_param('ssi', $status, $status, $id);
                 $ok = $stmt->execute();
                 $stmt->close();
+            }
+
+            if ($ok && $status === 'Completed') {
+                $stmt = $conn->prepare($type === 'walkin'
+                    ? "SELECT Customer_ID AS customer_id, Schedule_ID AS schedule_id FROM booking WHERE Booking_ID = ? LIMIT 1"
+                    : "SELECT customer_id, schedule_id FROM booking_online WHERE id = ? LIMIT 1");
+                $stmt->bind_param('i', $id);
+                $stmt->execute();
+                $done = $stmt->get_result()->fetch_assoc();
+                $stmt->close();
+                if ($done) {
+                    wf_record_tracking_completed($conn, (int)$done['customer_id'], $done['schedule_id'] === null ? null : (int)$done['schedule_id']);
+                }
             }
 
             if ($ok && class_exists('Logger')) {
@@ -254,7 +275,79 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 
         $flash = [
             'type'    => $ok ? 'success' : 'error',
-            'message' => $ok ? "Booking #$id updated to $status." : 'Failed to update booking status.'
+            'message' => $ok
+                ? "Booking #$id updated to $status."
+                : ($blocked
+                    ? "Booking #$id has no payment yet. Record the payment before marking it Completed."
+                    : 'Failed to update booking status.')
+        ];
+    }
+
+    /* ---------- RECORD CASH PAID AT THE COUNTER ---------- */
+    if ($action === 'record_cash') {
+        $id = (int)($_POST['id'] ?? 0);
+        $ok = false;
+
+        try {
+            $stmt = $conn->prepare("SELECT total_amount, customer_name, contact_number FROM booking_online WHERE id = ? LIMIT 1");
+            $stmt->bind_param('i', $id);
+            $stmt->execute();
+            $booking = $stmt->get_result()->fetch_assoc();
+            $stmt->close();
+
+            if ($booking && !wf_booking_has_payment($conn, 'online', $id)) {
+                $note = 'Cash received at the counter by ' . $current_name;
+
+                $stmt = $conn->prepare("
+                    UPDATE payments_online
+                    SET payment_method = 'Cash', payment_status = 'Paid', payment_date = NOW(), notes = ?
+                    WHERE booking_id = ? AND payment_status = 'Pending'
+                    ORDER BY payment_id DESC
+                    LIMIT 1
+                ");
+                $stmt->bind_param('si', $note, $id);
+                $stmt->execute();
+                $updated = $stmt->affected_rows;
+                $stmt->close();
+
+                if ($updated <= 0) {
+                    $amount = (float)$booking['total_amount'];
+                    $stmt = $conn->prepare("
+                        INSERT INTO payments_online (booking_id, amount, payment_method, payment_status, payment_date, notes)
+                        VALUES (?, ?, 'Cash', 'Paid', NOW(), ?)
+                    ");
+                    $stmt->bind_param('ids', $id, $amount, $note);
+                    $stmt->execute();
+                    $stmt->close();
+                }
+
+                wf_settle_online_booking($conn, $id);
+                $ok = true;
+
+                if (class_exists('Logger')) {
+                    Logger::info('Staff recorded cash payment', ['booking_id' => $id, 'by' => $current_id, 'role' => 'staff']);
+                }
+
+                $cust_name = $booking['customer_name'] ?: 'Customer';
+                notify_customer($conn, [
+                    'online_id' => $id,
+                    'name'      => $cust_name,
+                    'contact'   => $booking['contact_number'] ?? '',
+                    'email'     => null,
+                    'subject'   => "Payment Received — WashFlow Booking #{$id}",
+                    'message'   => "Hi {$cust_name}, we received your cash payment of ₱" .
+                                   number_format((float)$booking['total_amount'], 2) .
+                                   " for booking #{$id}. Thank you for choosing WashFlow!",
+                ]);
+            }
+        } catch (Exception $ex) {
+            if (class_exists('Logger')) Logger::error('Record cash failed', ['error' => $ex->getMessage()]);
+            $ok = false;
+        }
+
+        $flash = [
+            'type'    => $ok ? 'success' : 'error',
+            'message' => $ok ? "Cash payment recorded for booking #$id." : 'Failed to record the cash payment.'
         ];
     }
 
@@ -285,7 +378,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 }
 
                 if ($customer_info) {
-                    $set_parts = ["payment_status = 'Paid'"];
+                    $set_parts = ["payment_status = 'Paid'", "payment_date = NOW()"];
                     $types     = '';
                     $params    = [];
 
@@ -312,6 +405,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                         $stmt->bind_param($types, ...$params);
                         $ok = $stmt->execute();
                         $stmt->close();
+                    }
+
+                    if ($ok) {
+                        wf_settle_online_booking($conn, (int)$customer_info['booking_ref']);
                     }
                 }
             }
@@ -568,9 +665,9 @@ try {
         $list_sql = "SELECT b.Booking_ID, b.Customer_ID, b.service, b.add_ons, b.pick_deliver,
                             b.special_instructions, b.status, b.total_amount, b.booking_date,
                             c.first_name, c.last_name, c.contact_number, c.email,
-                            NULL AS payment_id,
-                            NULL AS payment_status,
-                            NULL AS payment_method,
+                            (SELECT pw.payment_id FROM payments pw WHERE pw.booking_id = b.Booking_ID AND pw.payment_status = 'Paid' LIMIT 1) AS payment_id,
+                            (SELECT pw.payment_status FROM payments pw WHERE pw.booking_id = b.Booking_ID AND pw.payment_status = 'Paid' LIMIT 1) AS payment_status,
+                            (SELECT pw.payment_method FROM payments pw WHERE pw.booking_id = b.Booking_ID AND pw.payment_status = 'Paid' LIMIT 1) AS payment_method,
                             NULL AS payment_reference,
                             NULL AS payment_proof
                      FROM booking b
@@ -625,7 +722,11 @@ try {
         $where_sql = implode(' AND ', $where);
 
         $pay_join = $has_payments_table
-            ? "LEFT JOIN payments_online p ON p.`{$pay_ref_col}` = b.id"
+            ? "LEFT JOIN payments_online p ON p.payment_id = (
+                   SELECT p2.payment_id FROM payments_online p2
+                   WHERE p2.`{$pay_ref_col}` = b.id AND " . wf_real_online_payment_sql('p2') . "
+                   ORDER BY (p2.payment_status = 'Paid') DESC, p2.payment_id DESC
+                   LIMIT 1)"
             : "";
 
         $count_sql = "SELECT COUNT(*) c FROM booking_online b $pay_join WHERE $where_sql";
@@ -1332,6 +1433,10 @@ a { text-decoration:none; }
                                 if ($pay_raw === '') $pay_raw = $has_payment ? 'pending' : 'no payment';
 
                                 $needs_verify = in_array($pay_raw, ['pending', 'pending_verification'], true);
+                                $can_complete = $pay_raw === 'paid' || $needs_verify;
+                                $proof_url = !empty($b['payment_proof'])
+                                    ? 'view_proof.php?id=' . (int)$b['payment_id'] . '&_role=staff'
+                                    : '';
 
                                 if (!$has_payment) {
                                     $pay = ['label' => 'No Payment', 'icon' => 'fa-minus-circle'];
@@ -1358,7 +1463,12 @@ a { text-decoration:none; }
                                 <td><span class="wf-amount">₱<?= number_format((float)$b['total_amount'], 2) ?></span></td>
 
                                 <td>
-                                    <?php if ($has_payment): ?>
+                                    <?php if ($has_payment && $tab === 'walkin'): ?>
+                                    <span class="wf-pay-badge <?= $pay_cls ?>">
+                                        <i class="fas <?= e($pay['icon']) ?>"></i>
+                                        <?= e($pay['label']) ?>
+                                    </span>
+                                    <?php elseif ($has_payment): ?>
                                     <span class="wf-pay-badge <?= $pay_cls ?>"
                                           title="Click to verify payment"
                                           onclick='openVerifyModal(<?= js_json([
@@ -1370,7 +1480,7 @@ a { text-decoration:none; }
                                               "status" => $pay_raw,
                                               "method" => $b["payment_method"] ?? "",
                                               "ref"    => $b["payment_reference"] ?? "",
-                                              "proof"  => $b["payment_proof"] ?? "",
+                                              "proof"  => $proof_url,
                                               "service"=> $b["service"] ?? "",
                                               "date"   => $b["booking_date"],
                                           ]) ?>)'>
@@ -1393,6 +1503,19 @@ a { text-decoration:none; }
                                 <td><span class="wf-date"><?= date('M j, Y', strtotime($b['booking_date'])) ?></span></td>
                                 <td>
                                     <div class="wf-row-actions">
+                                        <?php if (!$can_complete && $status_raw !== 'Cancelled'): ?>
+                                            <?php if ($tab === 'walkin'): ?>
+                                            <a href="staff_payments.php?filter=pending&q=<?= (int)$b['Booking_ID'] ?>" class="wf-icon-btn verify" title="Collect Payment">
+                                                <i class="fas fa-money-bill-wave"></i>
+                                            </a>
+                                            <?php else: ?>
+                                            <button type="button" class="wf-icon-btn verify" title="Record Cash Payment"
+                                                onclick='confirmAction(<?= js_json(["id"=>$b["Booking_ID"],"record_cash"=>true,"label"=>"Record a cash payment of ₱" . number_format((float)$b["total_amount"], 2) . "?"]) ?>)'>
+                                                <i class="fas fa-money-bill-wave"></i>
+                                            </button>
+                                            <?php endif; ?>
+                                        <?php endif; ?>
+
                                         <?php if ($has_payment && $needs_verify): ?>
                                         <button type="button" class="wf-icon-btn verify" title="Verify Payment"
                                             onclick='openVerifyModal(<?= js_json([
@@ -1404,7 +1527,7 @@ a { text-decoration:none; }
                                                 "status" => $pay_raw,
                                                 "method" => $b["payment_method"] ?? "",
                                                 "ref"    => $b["payment_reference"] ?? "",
-                                                "proof"  => $b["payment_proof"] ?? "",
+                                                "proof"  => $proof_url,
                                                 "service"=> $b["service"] ?? "",
                                                 "date"   => $b["booking_date"],
                                             ]) ?>)'>
@@ -1428,8 +1551,9 @@ a { text-decoration:none; }
                                                 "payment_status" => $pay_raw,
                                                 "payment_method" => $b["payment_method"] ?? "",
                                                 "payment_reference" => $b["payment_reference"] ?? "",
-                                                "payment_proof" => $b["payment_proof"] ?? "",
+                                                "payment_proof" => $proof_url,
                                                 "payment_id" => $b["payment_id"] ?? null,
+                                                "can_complete" => $can_complete,
                                             ]) ?>)'>
                                             <i class="fas fa-eye"></i>
                                         </button>
@@ -1447,7 +1571,11 @@ a { text-decoration:none; }
                                                 <i class="fas fa-play"></i>
                                             </button>
                                             <?php endif; ?>
-                                            <?php if ($status_raw === 'In Progress'): ?>
+                                            <?php if ($status_raw === 'In Progress' && !$can_complete): ?>
+                                            <button type="button" class="wf-icon-btn complete" disabled style="opacity:0.4;cursor:not-allowed;" title="Record the payment first">
+                                                <i class="fas fa-check-double"></i>
+                                            </button>
+                                            <?php elseif ($status_raw === 'In Progress'): ?>
                                             <button type="button" class="wf-icon-btn complete" title="Mark Completed"
                                                 onclick='confirmAction(<?= js_json(["id"=>$b["Booking_ID"],"type"=>"walkin","status"=>"Completed","label"=>"Mark this booking as completed?"]) ?>)'>
                                                 <i class="fas fa-check-double"></i>
@@ -1473,7 +1601,11 @@ a { text-decoration:none; }
                                                 <i class="fas fa-box-open"></i>
                                             </button>
                                             <?php endif; ?>
-                                            <?php if ($status_raw === 'Ready'): ?>
+                                            <?php if ($status_raw === 'Ready' && !$can_complete): ?>
+                                            <button type="button" class="wf-icon-btn complete" disabled style="opacity:0.4;cursor:not-allowed;" title="Record the payment first">
+                                                <i class="fas fa-check-double"></i>
+                                            </button>
+                                            <?php elseif ($status_raw === 'Ready'): ?>
                                             <button type="button" class="wf-icon-btn complete" title="Mark Completed"
                                                 onclick='confirmAction(<?= js_json(["id"=>$b["Booking_ID"],"type"=>"online","status"=>"Completed","label"=>"Mark this booking as completed?"]) ?>)'>
                                                 <i class="fas fa-check-double"></i>
@@ -1606,6 +1738,11 @@ a { text-decoration:none; }
     <input type="hidden" name="type" id="updateType">
     <input type="hidden" name="id" id="updateId">
     <input type="hidden" name="status" id="updateStatus">
+</form>
+
+<form method="post" id="recordCashForm" style="display:none;">
+    <input type="hidden" name="action" value="record_cash">
+    <input type="hidden" name="id" id="recordCashId">
 </form>
 
 <form method="post" id="markPaidForm" style="display:none;">
@@ -1753,6 +1890,7 @@ function openPanel(data) {
 
     let footerHtml = '';
     const status = String(data.status);
+    const paymentRequiredBtn = `<button type="button" class="wf-btn wf-btn-primary" disabled style="opacity:0.5;cursor:not-allowed;" title="Record the payment first"><i class="fas fa-lock"></i> Payment Required</button>`;
 
     if (isWalkin) {
         if (status === 'Pending') {
@@ -1762,7 +1900,7 @@ function openPanel(data) {
             footerHtml += `<button type="button" class="wf-btn wf-btn-primary" onclick='closePanel(); confirmAction(${JSON.stringify({id:data.id,type:"walkin",status:"In Progress",label:"Start processing this booking?"})})'><i class="fas fa-play"></i> Start Processing</button>`;
         }
         if (status === 'In Progress') {
-            footerHtml += `<button type="button" class="wf-btn wf-btn-primary" onclick='closePanel(); confirmAction(${JSON.stringify({id:data.id,type:"walkin",status:"Completed",label:"Mark this booking as completed?"})})'><i class="fas fa-check-double"></i> Complete</button>`;
+            footerHtml += !data.can_complete ? paymentRequiredBtn : `<button type="button" class="wf-btn wf-btn-primary" onclick='closePanel(); confirmAction(${JSON.stringify({id:data.id,type:"walkin",status:"Completed",label:"Mark this booking as completed?"})})'><i class="fas fa-check-double"></i> Complete</button>`;
         }
         if (['Pending','Confirmed','In Progress'].includes(status)) {
             footerHtml += `<button type="button" class="wf-btn wf-btn-danger" onclick='closePanel(); confirmAction(${JSON.stringify({id:data.id,type:"walkin",status:"Cancelled",label:"Cancel this booking?",danger:true})})'><i class="fas fa-times"></i> Cancel</button>`;
@@ -1775,14 +1913,14 @@ function openPanel(data) {
             footerHtml += `<button type="button" class="wf-btn wf-btn-primary" onclick='closePanel(); confirmAction(${JSON.stringify({id:data.id,type:"online",status:"Ready",label:"Mark as ready for pickup/delivery?"})})'><i class="fas fa-box-open"></i> Mark Ready</button>`;
         }
         if (status === 'Ready') {
-            footerHtml += `<button type="button" class="wf-btn wf-btn-primary" onclick='closePanel(); confirmAction(${JSON.stringify({id:data.id,type:"online",status:"Completed",label:"Mark this booking as completed?"})})'><i class="fas fa-check-double"></i> Complete</button>`;
+            footerHtml += !data.can_complete ? paymentRequiredBtn : `<button type="button" class="wf-btn wf-btn-primary" onclick='closePanel(); confirmAction(${JSON.stringify({id:data.id,type:"online",status:"Completed",label:"Mark this booking as completed?"})})'><i class="fas fa-check-double"></i> Complete</button>`;
         }
         if (['Pending','Processing','Ready'].includes(status)) {
             footerHtml += `<button type="button" class="wf-btn wf-btn-danger" onclick='closePanel(); confirmAction(${JSON.stringify({id:data.id,type:"online",status:"Cancelled",label:"Cancel this booking?",danger:true})})'><i class="fas fa-times"></i> Cancel</button>`;
         }
     }
 
-    if (data.payment_id && payKey !== 'paid') {
+    if (data.payment_id && payKey !== 'paid' && !isWalkin) {
         footerHtml += `<button type="button" class="wf-btn wf-btn-green" onclick='closePanel(); openVerifyModal(${JSON.stringify({
             id: data.payment_id,
             type: data.type,
@@ -1842,17 +1980,7 @@ function openVerifyModal(data) {
     const proofWrap = document.getElementById('verifyProofWrap');
     if (data.proof) {
         const proofStr = String(data.proof);
-        const isUrl = /^https?:\/\//i.test(proofStr) || /^\/|^\.\//.test(proofStr) || /\.(png|jpe?g|gif|webp|pdf)$/i.test(proofStr);
-        if (isUrl) {
-            const isImg = /\.(png|jpe?g|gif|webp)$/i.test(proofStr);
-            if (isImg) {
-                proofWrap.innerHTML = `<img src="${escapeHtml(proofStr)}" alt="Payment proof" onerror="this.style.display='none'; this.nextElementSibling.style.display='inline-flex';"><a href="${escapeHtml(proofStr)}" target="_blank" style="display:none;"><i class="fas fa-external-link-alt"></i> Open proof in new tab</a>`;
-            } else {
-                proofWrap.innerHTML = `<a href="${escapeHtml(proofStr)}" target="_blank"><i class="fas fa-file-invoice"></i> View payment proof</a>`;
-            }
-        } else {
-            proofWrap.innerHTML = `<div style="font-size:0.82rem;color:var(--text-secondary);"><i class="fas fa-info-circle"></i> Proof reference: <strong>${escapeHtml(proofStr)}</strong></div>`;
-        }
+        proofWrap.innerHTML = `<img src="${escapeHtml(proofStr)}" alt="Payment proof" onerror="this.style.display='none'; this.nextElementSibling.style.display='inline-flex';"><a href="${escapeHtml(proofStr)}" target="_blank" style="display:none;"><i class="fas fa-external-link-alt"></i> Open proof in new tab</a>`;
         proofWrap.style.display = 'block';
     } else {
         proofWrap.style.display = 'none';
@@ -1917,6 +2045,11 @@ function closeConfirmModal() {
 
 function executeConfirm() {
     if (!pendingAction) return;
+    if (pendingAction.record_cash) {
+        document.getElementById('recordCashId').value = pendingAction.id;
+        document.getElementById('recordCashForm').submit();
+        return;
+    }
     document.getElementById('updateType').value   = pendingAction.type;
     document.getElementById('updateId').value     = pendingAction.id;
     document.getElementById('updateStatus').value = pendingAction.status;
@@ -1990,7 +2123,7 @@ sidebarOverlay.addEventListener('click', function() {
             "status"  => strtolower($verify_target["payment_status"] ?? "pending"),
             "method"  => $verify_target["payment_method"] ?? "",
             "ref"     => $verify_target["reference_number"] ?? "",
-            "proof"   => $verify_target["payment_proof"] ?? "",
+            "proof"   => !empty($verify_target["payment_proof"]) ? "view_proof.php?id=" . (int)$verify_target["payment_id"] . "&_role=staff" : "",
             "service" => $verify_target["service"] ?? "",
             "date"    => $verify_target["payment_date"] ?? "",
         ]) : 'null' ?>;
@@ -2002,5 +2135,6 @@ sidebarOverlay.addEventListener('click', function() {
 })();
 </script>
 
+<script src="row_click.js"></script>
 </body>
 </html>

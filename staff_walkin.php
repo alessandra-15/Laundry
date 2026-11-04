@@ -187,9 +187,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'creat
             VALUES (?, ?, ?, ?, ?, NOW(), ?)
         ");
         $remarks = 'Walk-in booking created by staff ' . $staff_name;
+        $payment_db_status = $payment_status === 'Paid' ? 'Paid' : 'Pending';
         $pay_stmt->bind_param('iidsss',
             $customer_id, $new_booking_id, $total_amount,
-            $payment_method, $payment_status, $remarks
+            $payment_method, $payment_db_status, $remarks
         );
         $pay_stmt->execute();
         $pay_stmt->close();

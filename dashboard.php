@@ -9,6 +9,7 @@ require_once 'db_connect.php';
 require_once 'logger.php';
 require_once 'functions.php';
 require_once 'auth_guard.php';
+require_once 'booking_sync.php';
 
 $admin_id   = require_role(ROLE_ADMIN);
 $admin_name = $_SESSION['admin_name'] ?? $_SESSION['username'] ?? 'Admin';
@@ -43,14 +44,13 @@ try {
     $q = $conn->query("SELECT COUNT(*) AS c FROM booking WHERE status IN ('Confirmed','In Progress')");
     if ($q) $stats['processing'] = (int)$q->fetch_assoc()['c'];
 
-    $q = $conn->query("SELECT COUNT(*) AS c FROM booking WHERE status = 'Completed' AND DATE(booking_date) = CURDATE()");
-    if ($q) $stats['completed_today'] = (int)$q->fetch_assoc()['c'];
+    $done_today = wf_completed_today($conn);
+    $stats['completed_today'] = $done_today['walkin'] + $done_today['online'];
+    $stats['revenue_today']   = $done_today['revenue'];
 
     $q = $conn->query("SELECT COALESCE(SUM(total_amount),0) AS s FROM booking WHERE status = 'Completed'");
     if ($q) $stats['total_revenue'] = (float)$q->fetch_assoc()['s'];
 
-    $q = $conn->query("SELECT COALESCE(SUM(total_amount),0) AS s FROM booking WHERE status = 'Completed' AND DATE(booking_date) = CURDATE()");
-    if ($q) $stats['revenue_today'] = (float)$q->fetch_assoc()['s'];
 
     $q = $conn->query("SELECT COUNT(DISTINCT Customer_ID) AS c FROM customer_info");
     if ($q) $stats['total_customers'] = (int)$q->fetch_assoc()['c'];

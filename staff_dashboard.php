@@ -18,6 +18,7 @@ require_once 'session_config.php';
 require_once 'db_connect.php';
 require_once 'logger.php';
 require_once 'functions.php';
+require_once 'booking_sync.php';
 
 /* ══════════════════════════════════════════
    AUTH — STAFF ONLY
@@ -104,8 +105,8 @@ try {
     $q = $conn->query("SELECT COUNT(DISTINCT Booking_ID) c FROM booking WHERE status IN ('Confirmed','In Progress')");
     if ($q) $stats['walkin_progress'] = (int)$q->fetch_assoc()['c'];
 
-    $q = $conn->query("SELECT COUNT(DISTINCT Booking_ID) c FROM booking WHERE status='Completed' AND DATE(booking_date)=CURDATE()");
-    if ($q) $stats['walkin_completed'] = (int)$q->fetch_assoc()['c'];
+    $done_today = wf_completed_today($conn);
+    $stats['walkin_completed'] = $done_today['walkin'];
 
     /* Online */
     $q = $conn->query("SELECT COUNT(*) c FROM booking_online WHERE status='Pending' OR status=''");
@@ -117,8 +118,7 @@ try {
     $q = $conn->query("SELECT COUNT(*) c FROM booking_online WHERE status='Ready'");
     if ($q) $stats['online_ready'] = (int)$q->fetch_assoc()['c'];
 
-    $q = $conn->query("SELECT COUNT(*) c FROM booking_online WHERE status='Completed' AND DATE(timestamp)=CURDATE()");
-    if ($q) $stats['online_completed'] = (int)$q->fetch_assoc()['c'];
+    $stats['online_completed'] = $done_today['online'];
 
     /* Payments */
     if ($has_payments) {
@@ -135,6 +135,13 @@ try {
             $stats['pay_paid_today'] = (int)$row['c'];
             $stats['collected_today'] = (float)$row['s'];
         }
+    }
+
+    $q = $conn->query("SELECT COUNT(*) c, COALESCE(SUM(amount),0) s FROM payments WHERE payment_status='Paid' AND DATE(payment_date)=CURDATE()");
+    if ($q) {
+        $row = $q->fetch_assoc();
+        $stats['pay_paid_today']  += (int)$row['c'];
+        $stats['collected_today'] += (float)$row['s'];
     }
 
     $stats['completed_today'] = $stats['walkin_completed'] + $stats['online_completed'];
@@ -799,5 +806,6 @@ a { text-decoration:none; }
     overlay.addEventListener('click', () => { sidebar.classList.remove('open'); overlay.classList.remove('open'); });
 })();
 </script>
+<script src="row_click.js"></script>
 </body>
 </html>

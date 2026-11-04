@@ -79,24 +79,40 @@ $stats = [
     'completed'   => 0,
 ];
 
+/* Online bookings have no schedule, so they get no tracking row.
+   Show them here from booking_online alongside the real tracking rows. */
+$trk_src = "(SELECT Tracking_ID, Customer_ID, Schedule_ID, laundry_status, Scheduled_time, Pickup_time,
+                    Processing_time, Ready_time, Completed_time, tracking_time, tracking_date,
+                    NULL AS online_id
+             FROM tracking
+             UNION ALL
+             SELECT NULL, customer_id, NULL,
+                    CASE status WHEN 'Pending' THEN 'Scheduled' ELSE status END,
+                    NULL, NULL, NULL, NULL, TIME(completed_at),
+                    TIME(COALESCE(completed_at, `timestamp`)),
+                    DATE(COALESCE(completed_at, `timestamp`)),
+                    id
+             FROM booking_online
+             WHERE schedule_id IS NULL AND status IN ('Pending','Processing','Ready','Completed'))";
+
 if ($has_tracking_table) {
     try {
-        $q = $conn->query("SELECT COUNT(*) c FROM tracking");
+        $q = $conn->query("SELECT COUNT(*) c FROM $trk_src t");
         if ($q) $stats['total'] = (int)$q->fetch_assoc()['c'];
 
-        $q = $conn->query("SELECT COUNT(*) c FROM tracking WHERE LOWER(laundry_status) = 'scheduled'");
+        $q = $conn->query("SELECT COUNT(*) c FROM $trk_src t WHERE LOWER(laundry_status) = 'scheduled'");
         if ($q) $stats['scheduled'] = (int)$q->fetch_assoc()['c'];
 
-        $q = $conn->query("SELECT COUNT(*) c FROM tracking WHERE LOWER(laundry_status) IN ('picked up','pickedup')");
+        $q = $conn->query("SELECT COUNT(*) c FROM $trk_src t WHERE LOWER(laundry_status) IN ('picked up','pickedup')");
         if ($q) $stats['picked_up'] = (int)$q->fetch_assoc()['c'];
 
-        $q = $conn->query("SELECT COUNT(*) c FROM tracking WHERE LOWER(laundry_status) = 'processing'");
+        $q = $conn->query("SELECT COUNT(*) c FROM $trk_src t WHERE LOWER(laundry_status) = 'processing'");
         if ($q) $stats['processing'] = (int)$q->fetch_assoc()['c'];
 
-        $q = $conn->query("SELECT COUNT(*) c FROM tracking WHERE LOWER(laundry_status) = 'ready'");
+        $q = $conn->query("SELECT COUNT(*) c FROM $trk_src t WHERE LOWER(laundry_status) = 'ready'");
         if ($q) $stats['ready'] = (int)$q->fetch_assoc()['c'];
 
-        $q = $conn->query("SELECT COUNT(*) c FROM tracking WHERE LOWER(laundry_status) = 'completed'");
+        $q = $conn->query("SELECT COUNT(*) c FROM $trk_src t WHERE LOWER(laundry_status) = 'completed'");
         if ($q) $stats['completed'] = (int)$q->fetch_assoc()['c'];
     } catch (Exception $ex) {
         Logger::error('Admin tracking stats failed', ['error' => $ex->getMessage()]);
@@ -137,9 +153,9 @@ if ($has_tracking_table) {
         $types  = '';
 
         if ($search !== '') {
-            $where[] = "(t.Tracking_ID LIKE ? OR t.Customer_ID LIKE ? OR t.Schedule_ID LIKE ? OR c.first_name LIKE ? OR c.last_name LIKE ?)";
+            $where[] = "(t.Tracking_ID LIKE ? OR t.online_id LIKE ? OR t.Customer_ID LIKE ? OR t.Schedule_ID LIKE ? OR c.first_name LIKE ? OR c.last_name LIKE ?)";
             $like = '%' . $search . '%';
-            for ($i = 0; $i < 5; $i++) { $params[] = $like; $types .= 's'; }
+            for ($i = 0; $i < 6; $i++) { $params[] = $like; $types .= 's'; }
         }
 
         if ($status_f !== '') {
@@ -159,7 +175,7 @@ if ($has_tracking_table) {
 
         // Count
         $count_sql = "SELECT COUNT(*) c
-                      FROM tracking t
+                      FROM $trk_src t
                       LEFT JOIN customer_info c ON c.Customer_ID = t.Customer_ID
                       WHERE $where_sql";
         $stmt = $conn->prepare($count_sql);
@@ -183,14 +199,16 @@ if ($has_tracking_table) {
                         t.Completed_time,
                         t.tracking_time,
                         t.tracking_date,
-                        CONCAT(COALESCE(c.first_name,''), ' ', COALESCE(c.last_name,'')) AS customer_name,
-                        c.contact_number,
-                        b.service,
-                        b.pick_deliver,
-                        b.status AS booking_status
-                     FROM tracking t
+                        t.online_id,
+                        COALESCE(ob.customer_name, CONCAT(COALESCE(c.first_name,''), ' ', COALESCE(c.last_name,''))) AS customer_name,
+                        COALESCE(c.contact_number, ob.contact_number) AS contact_number,
+                        COALESCE(b.service, ob.service) AS service,
+                        COALESCE(b.pick_deliver, ob.delivery_option) AS pick_deliver,
+                        COALESCE(b.status, ob.status) AS booking_status
+                     FROM $trk_src t
                      LEFT JOIN customer_info c ON c.Customer_ID = t.Customer_ID
                      LEFT JOIN booking b ON b.Schedule_ID = t.Schedule_ID
+                     LEFT JOIN booking_online ob ON ob.id = t.online_id
                      WHERE $where_sql
                      ORDER BY $order_sql
                      LIMIT ? OFFSET ?";
@@ -754,10 +772,11 @@ a { text-decoration:none; }
                                     'Completed'  => $r['Completed_time']  ?? null,
                                 ];
                                 $current_status = strtolower(trim((string)$r['laundry_status']));
+                                $track_ref = $r['Tracking_ID'] ?? ('ON-' . $r['online_id']);
                             ?>
                             <tr>
                                 <td>
-                                    <span class="wf-track-id">#<?= e($r['Tracking_ID']) ?></span>
+                                    <span class="wf-track-id">#<?= e($track_ref) ?></span>
                                     <?php if (!empty($r['Schedule_ID'])): ?>
                                         <span class="wf-booking-ref">SC-<?= e($r['Schedule_ID']) ?></span>
                                     <?php endif; ?>
@@ -803,7 +822,7 @@ a { text-decoration:none; }
                                     <div class="wf-row-actions">
                                         <button type="button" class="wf-icon-btn" title="View Details"
                                             onclick='openPanel(<?= json_encode([
-                                                "tracking_id"      => $r["Tracking_ID"],
+                                                "tracking_id"      => $track_ref,
                                                 "customer_id"      => $r["Customer_ID"],
                                                 "schedule_id"      => $r["Schedule_ID"],
                                                 "customer"         => $customer_name,
@@ -1069,5 +1088,6 @@ sidebarOverlay.addEventListener('click', function() {
     sidebarOverlay.classList.remove('open');
 });
 </script>
+<script src="row_click.js"></script>
 </body>
 </html>

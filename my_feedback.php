@@ -1278,7 +1278,7 @@ a { text-decoration: none; }
                 <i class="fas fa-star"></i>
                 <span>Feedback</span>
             </a>
-            <a href="complaints.php" class="wf-nav-item">
+            <a href="my_complaints.php" class="wf-nav-item">
                 <i class="fas fa-headset"></i>
                 <span>Complaints</span>
             </a>

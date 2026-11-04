@@ -1409,5 +1409,6 @@ sidebarOverlay.addEventListener('click', function() {
     sidebarOverlay.classList.remove('open');
 });
 </script>
+<script src="row_click.js"></script>
 </body>
 </html>

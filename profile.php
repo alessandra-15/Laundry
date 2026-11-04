@@ -223,8 +223,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'uploa
                 }
 
                 $htaccess = $targetDir . '.htaccess';
-                if (!file_exists($htaccess)) {
-                    file_put_contents($htaccess, "php_flag engine off\nOptions -ExecCGI\n");
+                if (!file_exists($htaccess) || str_contains((string)file_get_contents($htaccess), 'php_flag')) {
+                    file_put_contents($htaccess, '<FilesMatch "\.(php|phtml|phar)$">' . "\n    Require all denied\n</FilesMatch>\n");
                 }
 
                 $targetPath = $targetDir . $newFileName;

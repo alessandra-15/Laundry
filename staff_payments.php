@@ -10,6 +10,8 @@ require_once 'session_config.php';
 require_once 'db_connect.php';
 require_once 'logger.php';
 require_once 'functions.php';
+require_once 'notifications_helper.php';
+require_once 'booking_sync.php';
 
 /* AUTH — STAFF ONLY */
 if (!is_staff_logged_in()) {
@@ -45,6 +47,7 @@ $flash = null;
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action     = $_POST['action'] ?? '';
     $payment_id = (int)($_POST['payment_id'] ?? 0);
+    $is_online  = ($_POST['source'] ?? '') === 'online';
 
     try {
         if ($payment_id <= 0) {
@@ -52,12 +55,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         /* Kunin muna ang payment info */
-        $stmt = $conn->prepare("
-            SELECT payment_id, booking_id, customer_id, amount, payment_status
-            FROM payments
-            WHERE payment_id = ?
-            LIMIT 1
-        ");
+        $stmt = $conn->prepare($is_online
+            ? "SELECT p.payment_id, p.booking_id, b.customer_id, p.amount, p.payment_status
+               FROM payments_online p
+               LEFT JOIN booking_online b ON b.id = p.booking_id
+               WHERE p.payment_id = ?
+               LIMIT 1"
+            : "SELECT payment_id, booking_id, customer_id, amount, payment_status
+               FROM payments
+               WHERE payment_id = ?
+               LIMIT 1");
         $stmt->bind_param('i', $payment_id);
         $stmt->execute();
         $pay = $stmt->get_result()->fetch_assoc();
@@ -72,18 +79,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 throw new Exception('Payment is already marked as Paid.');
             }
 
-            /* Ang trigger `after_payment_update` at `sync_booking_status_after_payment`
-               ay automatic nang:
-               - Mag-a-update ng booking status to 'Confirmed'
-               - Mag-a-add ng financial record
-               - Mag-a-update ng transaction table (kung meron) */
-            $stmt = $conn->prepare("
-                UPDATE payments
-                SET payment_status = 'Paid',
-                    remarks = CONCAT(COALESCE(remarks,''), ' | Verified by ', ?, ' on ', NOW())
-                WHERE payment_id = ? AND payment_status <> 'Paid'
-                LIMIT 1
-            ");
+            /* payment_date becomes the verification time so Paid Today counts it */
+            $stmt = $conn->prepare($is_online
+                ? "UPDATE payments_online
+                   SET payment_status = 'Paid', payment_date = NOW(),
+                       notes = CONCAT(COALESCE(notes,''), ' | Verified by ', ?, ' on ', NOW())
+                   WHERE payment_id = ? AND payment_status <> 'Paid'
+                   LIMIT 1"
+                : "UPDATE payments
+                   SET payment_status = 'Paid', payment_date = NOW(),
+                       remarks = CONCAT(COALESCE(remarks,''), ' | Verified by ', ?, ' on ', NOW())
+                   WHERE payment_id = ? AND payment_status <> 'Paid'
+                   LIMIT 1");
             $stmt->bind_param('si', $staff_name, $payment_id);
             $stmt->execute();
             $affected = $stmt->affected_rows;
@@ -91,6 +98,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             if ($affected <= 0) {
                 throw new Exception('Hindi na-update ang payment. Baka na-verify na ito.');
+            }
+
+            $booking_id = (int)$pay['booking_id'];
+            if ($is_online) {
+                wf_settle_online_booking($conn, $booking_id);
+                CustomerNotify::create(
+                    $conn,
+                    (int)$pay['customer_id'],
+                    'Payment Verified',
+                    "Your payment of ₱" . number_format((float)$pay['amount'], 2) . " for booking #$booking_id has been verified.",
+                    'payment',
+                    'fas fa-check-circle',
+                    $booking_id,
+                    'booking_details.php?id=' . $booking_id
+                );
+            } else {
+                $stmt = $conn->prepare("UPDATE booking SET status = 'Confirmed' WHERE Booking_ID = ? AND status = 'Pending'");
+                $stmt->bind_param('i', $booking_id);
+                $stmt->execute();
+                $stmt->close();
             }
 
             if (class_exists('Logger')) {
@@ -104,7 +131,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             $flash = [
                 'type'    => 'success',
-                'message' => "Payment #{$payment_id} verified! ₱" . number_format((float)$pay['amount'], 2) . " — Booking #{$pay['booking_id']} is now Confirmed."
+                'message' => "Payment #{$payment_id} verified! ₱" . number_format((float)$pay['amount'], 2) . " — Booking #{$pay['booking_id']} is now marked as paid."
             ];
 
         } elseif ($action === 'refund') {
@@ -114,14 +141,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             $reason = trim($_POST['reason'] ?? 'Refunded by staff');
 
-            /* Ang trigger `sync_booking_status_after_payment` ay automatic
-               nang mag-se-set ng booking status to 'Cancelled' kapag refunded. */
-            $stmt = $conn->prepare("
-                UPDATE payments
-                SET payment_status = 'Refunded',
-                    remarks = CONCAT(COALESCE(remarks,''), ' | Refunded by ', ?, ': ', ?)
-                WHERE payment_id = ? LIMIT 1
-            ");
+            $stmt = $conn->prepare($is_online
+                ? "UPDATE payments_online
+                   SET payment_status = 'Refunded',
+                       notes = CONCAT(COALESCE(notes,''), ' | Refunded by ', ?, ': ', ?)
+                   WHERE payment_id = ? LIMIT 1"
+                : "UPDATE payments
+                   SET payment_status = 'Refunded',
+                       remarks = CONCAT(COALESCE(remarks,''), ' | Refunded by ', ?, ': ', ?)
+                   WHERE payment_id = ? LIMIT 1");
             $stmt->bind_param('ssi', $staff_name, $reason, $payment_id);
             $stmt->execute();
             $affected = $stmt->affected_rows;
@@ -130,6 +158,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($affected <= 0) {
                 throw new Exception('Hindi na-refund ang payment.');
             }
+
+            $booking_id = (int)$pay['booking_id'];
+            $stmt = $conn->prepare($is_online
+                ? "UPDATE booking_online SET status = 'Cancelled', payment_status = 'Unpaid' WHERE id = ?"
+                : "UPDATE booking SET status = 'Cancelled' WHERE Booking_ID = ?");
+            $stmt->bind_param('i', $booking_id);
+            $stmt->execute();
+            $stmt->close();
 
             if (class_exists('Logger')) {
                 Logger::info('Payment refunded', [
@@ -157,28 +193,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $filter = $_GET['filter'] ?? 'pending';
 $search = trim($_GET['q'] ?? '');
 
-$where  = [];
-$params = [];
-$types  = '';
+$where        = [];
+$where_online = [wf_real_online_payment_sql('p')];
+$params       = [];
+$types        = '';
 
 /* Sa DB mo, ang payment_status enum ay: Pending, Paid, Refunded */
 if ($filter === 'pending') {
-    $where[] = "p.payment_status = 'Pending'";
+    $where[] = $where_online[] = "p.payment_status = 'Pending'";
 } elseif ($filter === 'paid') {
-    $where[] = "p.payment_status = 'Paid'";
+    $where[] = $where_online[] = "p.payment_status = 'Paid'";
 } elseif ($filter === 'refunded') {
-    $where[] = "p.payment_status = 'Refunded'";
+    $where[] = $where_online[] = "p.payment_status = 'Refunded'";
 }
 /* 'all' = walang filter */
 
 if ($search !== '') {
-    $where[] = "(c.first_name LIKE ? OR c.last_name LIKE ? OR CAST(b.Booking_ID AS CHAR) LIKE ? OR CAST(p.payment_id AS CHAR) LIKE ?)";
+    $where[]        = "(c.first_name LIKE ? OR c.last_name LIKE ? OR CAST(b.Booking_ID AS CHAR) LIKE ? OR CAST(p.payment_id AS CHAR) LIKE ?)";
+    $where_online[] = "(c.first_name LIKE ? OR c.last_name LIKE ? OR b.customer_name LIKE ? OR CAST(b.id AS CHAR) LIKE ? OR CAST(p.payment_id AS CHAR) LIKE ?)";
     $like = '%' . $search . '%';
-    $params[] = $like; $params[] = $like; $params[] = $like; $params[] = $like;
-    $types .= 'ssss';
+    $params = array_fill(0, 9, $like);
+    $types  = str_repeat('s', 9);
 }
 
-$where_sql = !empty($where) ? 'WHERE ' . implode(' AND ', $where) : '';
+$where_sql        = !empty($where) ? 'WHERE ' . implode(' AND ', $where) : '';
+$where_online_sql = 'WHERE ' . implode(' AND ', $where_online);
 
 /* ──────────────────────────────────────────
    FETCH PAYMENTS
@@ -187,6 +226,9 @@ $payments = [];
 try {
     $sql = "
         SELECT
+            'walkin' AS source,
+            NULL AS reference_number,
+            NULL AS payment_proof,
             p.payment_id,
             p.booking_id,
             p.customer_id,
@@ -209,7 +251,37 @@ try {
         LEFT JOIN booking b       ON b.Booking_ID  = p.booking_id
         LEFT JOIN customer_info c ON c.Customer_ID = p.customer_id
         $where_sql
-        ORDER BY p.payment_date DESC, p.payment_id DESC
+
+        UNION ALL
+
+        SELECT
+            'online' AS source,
+            p.reference_number,
+            p.payment_proof,
+            p.payment_id,
+            p.booking_id,
+            b.customer_id,
+            p.amount,
+            p.payment_method,
+            p.payment_status,
+            p.payment_date,
+            p.notes,
+            b.service,
+            b.addons,
+            b.total_amount,
+            b.delivery_option,
+            b.status,
+            b.timestamp,
+            c.Customer_ID,
+            COALESCE(c.first_name, b.customer_name),
+            c.last_name,
+            COALESCE(c.contact_number, b.contact_number)
+        FROM payments_online p
+        LEFT JOIN booking_online b ON b.id = p.booking_id
+        LEFT JOIN customer_info c  ON c.Customer_ID = b.customer_id
+        $where_online_sql
+
+        ORDER BY payment_date DESC, payment_id DESC
         LIMIT 100
     ";
     $stmt = $conn->prepare($sql);
@@ -239,17 +311,21 @@ $stats = [
 ];
 
 try {
-    $q = $conn->query("SELECT COUNT(*) c FROM payments WHERE payment_status = 'Pending'");
-    if ($q) $stats['pending'] = (int)$q->fetch_assoc()['c'];
+    $real_online = wf_real_online_payment_sql('p');
+    foreach (['payments p WHERE 1=1', "payments_online p WHERE $real_online"] as $src) {
+        $q = $conn->query("SELECT COUNT(*) c FROM $src AND p.payment_status = 'Pending'");
+        if ($q) $stats['pending'] += (int)$q->fetch_assoc()['c'];
 
-    $q = $conn->query("SELECT COUNT(*) c FROM payments WHERE payment_status = 'Paid' AND DATE(payment_date) = CURDATE()");
-    if ($q) $stats['paid_today'] = (int)$q->fetch_assoc()['c'];
+        $q = $conn->query("SELECT COUNT(*) c, COALESCE(SUM(p.amount),0) s FROM $src AND p.payment_status = 'Paid' AND DATE(p.payment_date) = CURDATE()");
+        if ($q) {
+            $row = $q->fetch_assoc();
+            $stats['paid_today']      += (int)$row['c'];
+            $stats['collected_today'] += (float)$row['s'];
+        }
 
-    $q = $conn->query("SELECT COALESCE(SUM(amount),0) s FROM payments WHERE payment_status = 'Paid' AND DATE(payment_date) = CURDATE()");
-    if ($q) $stats['collected_today'] = (float)$q->fetch_assoc()['s'];
-
-    $q = $conn->query("SELECT COUNT(*) c FROM payments WHERE payment_status = 'Refunded'");
-    if ($q) $stats['refunded'] = (int)$q->fetch_assoc()['c'];
+        $q = $conn->query("SELECT COUNT(*) c FROM $src AND p.payment_status = 'Refunded'");
+        if ($q) $stats['refunded'] += (int)$q->fetch_assoc()['c'];
+    }
 } catch (Exception $e) {}
 ?>
 <!DOCTYPE html>
@@ -652,6 +728,10 @@ a { text-decoration:none; }
 
                                 $can_verify = ($p['payment_status'] === 'Pending');
                                 $can_refund = ($p['payment_status'] === 'Paid');
+                                $source     = $p['source'];
+                                $proof_url  = !empty($p['payment_proof'])
+                                    ? 'view_proof.php?id=' . (int)$p['payment_id'] . '&_role=staff'
+                                    : '';
                             ?>
                                 <tr>
                                     <td>
@@ -665,7 +745,7 @@ a { text-decoration:none; }
                                     </td>
                                     <td>
                                         <div style="font-weight:700;color:var(--dark-blue);">#<?= (int)$p['booking_id'] ?></div>
-                                        <div style="font-size:0.72rem;color:var(--text-muted);">Pay #<?= (int)$p['payment_id'] ?></div>
+                                        <div style="font-size:0.72rem;color:var(--text-muted);">Pay #<?= (int)$p['payment_id'] ?> · <?= $source === 'online' ? 'Online' : 'Walk-in' ?></div>
                                     </td>
                                     <td><span class="wf-amount">₱<?= number_format((float)$p['amount'], 2) ?></span></td>
                                     <td><span class="wf-badge method"><?= e($p['payment_method'] ?: 'Cash') ?></span></td>
@@ -687,7 +767,7 @@ a { text-decoration:none; }
                                     </td>
                                     <td style="text-align:right;">
                                         <div class="wf-actions" style="justify-content:flex-end;">
-                                            <button type="button" class="wf-btn-sm view" onclick='openReceipt(<?= json_encode([
+                                            <button type="button" class="wf-btn-sm view" data-row-open onclick='openReceipt(<?= json_encode([
                                                 "payment_id"  => (int)$p["payment_id"],
                                                 "booking_id"  => (int)$p["booking_id"],
                                                 "customer"    => $full,
@@ -700,16 +780,18 @@ a { text-decoration:none; }
                                                 "addons"      => $p["add_ons"] ?? "",
                                                 "remarks"     => $p["remarks"] ?? "",
                                                 "booking_status" => $p["booking_status"] ?? "",
+                                                "reference"   => $p["reference_number"] ?? "",
+                                                "proof"       => $proof_url,
                                             ], JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_TAG | JSON_HEX_AMP | JSON_UNESCAPED_UNICODE) ?>)'>
                                                 <i class="fas fa-eye"></i> View
                                             </button>
                                             <?php if ($can_verify): ?>
-                                                <button type="button" class="wf-btn-sm verify" onclick="confirmVerify(<?= (int)$p['payment_id'] ?>)">
+                                                <button type="button" class="wf-btn-sm verify" onclick="confirmVerify(<?= (int)$p['payment_id'] ?>, '<?= e($source) ?>')">
                                                     <i class="fas fa-check"></i> Verify
                                                 </button>
                                             <?php endif; ?>
                                             <?php if ($can_refund): ?>
-                                                <button type="button" class="wf-btn-sm refund" onclick="openRefund(<?= (int)$p['payment_id'] ?>)">
+                                                <button type="button" class="wf-btn-sm refund" onclick="openRefund(<?= (int)$p['payment_id'] ?>, '<?= e($source) ?>')">
                                                     <i class="fas fa-rotate-left"></i> Refund
                                                 </button>
                                             <?php endif; ?>
@@ -756,11 +838,12 @@ a { text-decoration:none; }
         </div>
         <p style="color:var(--text-secondary);font-size:0.88rem;margin-bottom:1.25rem;">
             Mark this payment as <strong>PAID</strong>?<br>
-            <small style="color:var(--text-muted);">Awtomatikong magiging <strong>Confirmed</strong> ang booking at mag-a-add ng financial record.</small>
+            <small style="color:var(--text-muted);">Maa-update din ang status ng booking.</small>
         </p>
         <form method="POST">
             <input type="hidden" name="action" value="verify">
             <input type="hidden" name="payment_id" id="verifyPaymentId">
+            <input type="hidden" name="source" id="verifySource">
             <div class="wf-modal-actions">
                 <button type="submit" class="wf-btn wf-btn-success" style="flex:1;">
                     <i class="fas fa-check"></i> Yes, Verify
@@ -786,6 +869,7 @@ a { text-decoration:none; }
         <form method="POST">
             <input type="hidden" name="action" value="refund">
             <input type="hidden" name="payment_id" id="refundPaymentId">
+            <input type="hidden" name="source" id="refundSource">
             <label style="display:block;font-size:0.78rem;font-weight:700;color:var(--dark-blue);margin-bottom:0.4rem;">
                 Reason for refund <span style="color:var(--red);">*</span>
             </label>
@@ -823,18 +907,22 @@ function openReceipt(data) {
         <div class="wf-receipt-row total"><span class="label">AMOUNT:</span><span class="value">${fmt(data.amount)}</span></div>
         <div class="wf-receipt-row" style="margin-top:0.5rem;"><span class="label">Method:</span><span class="value">${escapeHtml(data.method)}</span></div>
         <div class="wf-receipt-row"><span class="label">Status:</span><span class="value">${escapeHtml(data.status)}</span></div>
+        ${data.reference ? `<div class="wf-receipt-row"><span class="label">Reference:</span><span class="value">${escapeHtml(data.reference)}</span></div>` : ''}
         ${data.remarks ? `<div class="wf-receipt-row"><span class="label">Remarks:</span><span class="value">${escapeHtml(data.remarks)}</span></div>` : ''}
+        ${data.proof ? `<div class="wf-receipt-row"><span class="label">Proof:</span><span class="value"><a href="${escapeHtml(data.proof)}" target="_blank">View proof</a></span></div>` : ''}
     `;
     document.getElementById('receiptModal').classList.add('open');
 }
 
-function confirmVerify(id) {
+function confirmVerify(id, source) {
     document.getElementById('verifyPaymentId').value = id;
+    document.getElementById('verifySource').value = source;
     document.getElementById('verifyModal').classList.add('open');
 }
 
-function openRefund(id) {
+function openRefund(id, source) {
     document.getElementById('refundPaymentId').value = id;
+    document.getElementById('refundSource').value = source;
     document.getElementById('refundModal').classList.add('open');
 }
 
@@ -865,5 +953,6 @@ document.addEventListener('keydown', e => {
     overlay.addEventListener('click', () => { sidebar.classList.remove('open'); overlay.classList.remove('open'); });
 })();
 </script>
+<script src="row_click.js"></script>
 </body>
 </html>

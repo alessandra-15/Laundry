@@ -245,8 +245,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'uploa
                         }
 
                         $htaccess = $targetDir . '.htaccess';
-                        if (!file_exists($htaccess)) {
-                            file_put_contents($htaccess, "php_flag engine off\nOptions -ExecCGI\n");
+                        if (!file_exists($htaccess) || str_contains((string)file_get_contents($htaccess), 'php_flag')) {
+                            file_put_contents($htaccess, '<FilesMatch "\.(php|phtml|phar)$">' . "\n    Require all denied\n</FilesMatch>\n");
                         }
 
                         $targetPath = $targetDir . $newFileName;
@@ -1080,7 +1080,7 @@ a { text-decoration: none; }
                                 </td>
                                 <td style="text-align:right;">
                                     <?php if (!empty($p['payment_proof'])): ?>
-                                        <a href="<?= e($p['payment_proof']) ?>" target="_blank" class="wf-icon-btn" title="View proof">
+                                        <a href="view_proof.php?id=<?= (int)$p['payment_id'] ?>" target="_blank" class="wf-icon-btn" title="View proof">
                                             <i class="fas fa-file-image"></i>
                                         </a>
                                     <?php else: ?>

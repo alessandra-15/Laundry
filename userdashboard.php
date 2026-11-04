@@ -1020,7 +1020,6 @@ a { text-decoration: none; }
                                     <th>Amount</th>
                                     <th>Status</th>
                                     <th>Payment</th>
-                                    <th style="text-align:right;">Action</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -1028,8 +1027,8 @@ a { text-decoration: none; }
                                     $badge = dash_status_badge($b['status']);
                                     $pay_badge = dash_payment_badge($b);  // ← whole row, hindi $b['payment_status']
                                 ?>
-                                <tr>
-                                    <td><span class="wf-booking-id">#<?= e($b['id']) ?></span></td>
+                                <tr data-href="booking_details.php?id=<?= (int)$b['id'] ?>">
+                                    <td><a href="booking_details.php?id=<?= (int)$b['id'] ?>" class="wf-booking-id">#<?= e($b['id']) ?></a></td>
                                     <td><span class="wf-service-text"><?= e($b['service'] ?: '—') ?></span></td>
                                     <td><span class="wf-date"><?= e($b['dropoff_date'] ?: '—') ?> <?= $b['dropoff_time'] ? '• ' . e($b['dropoff_time']) : '' ?></span></td>
                                     <td><span class="wf-amount">₱<?= number_format((float)$b['total_amount'], 2) ?></span></td>
@@ -1042,11 +1041,6 @@ a { text-decoration: none; }
                                         <span class="wf-badge" style="color: <?= $pay_badge['color'] ?>; background: <?= $pay_badge['bg'] ?>;">
                                             <span class="wf-badge-dot"></span> <?= e($pay_badge['label']) ?>
                                         </span>
-                                    </td>
-                                    <td style="text-align:right;">
-                                        <a href="booking_details.php?id=<?= (int)$b['id'] ?>" class="wf-icon-btn" title="View details">
-                                            <i class="fas fa-eye"></i>
-                                        </a>
                                     </td>
                                 </tr>
                                 <?php endforeach; ?>
@@ -1289,5 +1283,6 @@ function escapeHtml(str) {
 })();
 </script>
 
+<script src="row_click.js"></script>
 </body>
 </html>

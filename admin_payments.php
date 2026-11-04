@@ -864,7 +864,7 @@ a { text-decoration:none; }
                                                 "status"         => $pay_key,
                                                 "reference"      => $p["reference_number"] ?? "",
                                                 "payment_date"   => $p["payment_date"],
-                                                "payment_proof"  => $p["payment_proof"] ?? "",
+                                                "payment_proof"  => !empty($p["payment_proof"]) ? "view_proof.php?id=" . (int)$p["payment_id"] . "&_role=admin" : "",
                                                 "notes"          => $p["notes"] ?? "",
                                                 "verified_by"    => $verified_by,
                                                 "verified_at"    => $verified_at,
@@ -1068,7 +1068,8 @@ function openPanel(data) {
         html += `
         <div class="wf-detail-section">
             <div class="wf-detail-section-title"><i class="fas fa-image"></i> Payment Proof</div>
-            <img src="${escapeHtml(data.payment_proof)}" alt="Payment Proof" class="wf-proof-img" onerror="this.style.display='none'; this.insertAdjacentHTML('afterend','<p style=\\'font-size:0.82rem;color:var(--text-muted);\\'>Proof file not found.</p>');">
+            <img src="${escapeHtml(data.payment_proof)}" alt="Payment Proof" class="wf-proof-img" onerror="this.style.display='none'; this.nextElementSibling.style.display='inline-block';">
+            <a href="${escapeHtml(data.payment_proof)}" target="_blank" style="display:none;font-size:0.82rem;font-weight:600;"><i class="fas fa-external-link-alt"></i> Open proof in new tab</a>
         </div>`;
     }
 
@@ -1138,5 +1139,6 @@ sidebarOverlay.addEventListener('click', function() {
     sidebarOverlay.classList.remove('open');
 });
 </script>
+<script src="row_click.js"></script>
 </body>
 </html>

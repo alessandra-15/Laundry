@@ -30,18 +30,6 @@ foreach ($rows as $r) {
     if (!isset($bySchedule[$sid])) { $bySchedule[$sid] = []; }
     $bySchedule[$sid][] = $r;
     if (!isset($latestBySchedule[$sid])) { $latestBySchedule[$sid] = $r; }
-    
-    if (strtolower(trim($r['laundry_status'])) === 'completed') {
-        $update = $conn->prepare("UPDATE booking_online SET status = 'Inactive', completed_at = NOW() WHERE schedule_id = ?");
-        $update->bind_param("i", $sid);
-        $update->execute();
-        $update->close();
-    } else if (!empty($r['laundry_status'])) {
-        $update = $conn->prepare("UPDATE booking_online SET status = 'Active' WHERE schedule_id = ?");
-        $update->bind_param("i", $sid);
-        $update->execute();
-        $update->close();
-    }
 }
 
 function h($v) { return htmlspecialchars((string)$v ?? '', ENT_QUOTES, 'UTF-8'); }

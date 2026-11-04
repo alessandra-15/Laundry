@@ -655,7 +655,7 @@ a { text-decoration: none; }
             <div class="wf-nav-section-label">Support</div>
             <a href="notifications.php" class="wf-nav-item"><i class="fas fa-bell"></i><span>Notifications</span></a>
             <a href="feedback.php" class="wf-nav-item"><i class="fas fa-star"></i><span>Feedback</span></a>
-            <a href="complaints.php" class="wf-nav-item"><i class="fas fa-headset"></i><span>Complaints</span></a>
+            <a href="my_complaints.php" class="wf-nav-item"><i class="fas fa-headset"></i><span>Complaints</span></a>
             <div class="wf-nav-section-label">Account</div>
             <a href="profile.php" class="wf-nav-item"><i class="fas fa-user"></i><span>Profile</span></a>
         </nav>
@@ -965,7 +965,7 @@ a { text-decoration: none; }
                             <a href="feedback.php" class="wf-btn wf-btn-outline">
                                 <i class="fas fa-star"></i> Leave Feedback
                             </a>
-                            <a href="complaints.php" class="wf-btn wf-btn-outline">
+                            <a href="my_complaints.php" class="wf-btn wf-btn-outline">
                                 <i class="fas fa-headset"></i> File a Complaint
                             </a>
                         </div>

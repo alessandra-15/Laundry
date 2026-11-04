@@ -1148,11 +1148,21 @@ a { text-decoration: none; }
                 <span>Dashboard</span>
             </a>
 
-            <div class="wf-nav-section-label">Operations</div>
-            <a href="booking_management.php" class="wf-nav-item">
-                <i class="fas fa-clipboard-list"></i>
-                <span>Bookings</span>
+            <div class="wf-nav-section-label">Monitoring</div>
+            <a href="admin_booking.php" class="wf-nav-item">
+                <i class="fas fa-eye"></i>
+                <span>Bookings Monitor</span>
             </a>
+            <a href="admin_payments.php" class="wf-nav-item">
+                <i class="fas fa-receipt"></i>
+                <span>Payments Monitor</span>
+            </a>
+            <a href="admin_tracking.php" class="wf-nav-item">
+                <i class="fas fa-route"></i>
+                <span>Tracking Monitor</span>
+            </a>
+
+            <div class="wf-nav-section-label">Operations</div>
             <a href="customer_management.php" class="wf-nav-item">
                 <i class="fas fa-users"></i>
                 <span>Customers</span>
@@ -1554,7 +1564,7 @@ a { text-decoration: none; }
                         <p>Latest <?= count($recent_bookings) ?> completed transactions</p>
                     </div>
                 </div>
-                <a href="booking_management.php" class="wf-card-link">
+                <a href="admin_booking.php" class="wf-card-link">
                     View All <i class="fas fa-arrow-right"></i>
                 </a>
             </div>
