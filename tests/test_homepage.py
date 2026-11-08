@@ -79,7 +79,7 @@ class TestHomepageNavigation:
         import time
         time.sleep(1)
 
-        about_section = driver.find_element(By.ID, "about")
+        about_section = driver.find_element(By.CSS_SELECTOR, "#about")
         assert about_section.is_displayed(), "About section should be visible after scroll"
 
 
@@ -90,21 +90,21 @@ class TestHomepageSections:
         """TC-HP-06: Services section is present with content."""
         navigate("index.php")
 
-        services = wait.until(EC.presence_of_element_located((By.ID, "services")))
+        services = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "#services")))
         assert services is not None, "Services section should exist"
 
     def test_hp07_pricing_section_exists(self, driver, navigate, wait):
         """TC-HP-07: Pricing section is present."""
         navigate("index.php")
 
-        pricing = wait.until(EC.presence_of_element_located((By.ID, "pricing")))
+        pricing = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "#pricing")))
         assert pricing is not None, "Pricing section should exist"
 
     def test_hp08_faq_section_exists(self, driver, navigate, wait):
         """TC-HP-08: FAQ section is present."""
         navigate("index.php")
 
-        faq = wait.until(EC.presence_of_element_located((By.ID, "faq")))
+        faq = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "#faq")))
         assert faq is not None, "FAQ section should exist"
 
     def test_hp09_footer_displays(self, driver, navigate, wait):

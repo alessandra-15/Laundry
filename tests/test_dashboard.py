@@ -96,7 +96,8 @@ class TestAdminDashboard:
 
     def test_ad03_admin_can_access_bookings(self, admin_login, navigate, wait):
         """TC-AD-03: Admin can access booking management."""
-        navigate("booking_management.php")
+        # booking_management.php is the staff page; admins use admin_booking.php
+        navigate("admin_booking.php")
         time.sleep(2)
 
         assert "booking" in admin_login.current_url.lower(), \

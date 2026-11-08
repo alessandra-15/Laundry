@@ -25,12 +25,12 @@ class TestCustomerLoginValid:
         """TC-LG-01: Login page loads with all form elements."""
         navigate("login.php")
 
-        form = wait.until(EC.presence_of_element_located((By.ID, "wfLoginForm")))
+        form = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "#wfLoginForm")))
         assert form.is_displayed(), "Login form should be visible"
 
-        email_input = driver.find_element(By.ID, "wfEmail")
-        password_input = driver.find_element(By.ID, "wfPassword")
-        login_btn = driver.find_element(By.ID, "wfLoginBtn")
+        email_input = driver.find_element(By.CSS_SELECTOR, "#wfEmail")
+        password_input = driver.find_element(By.CSS_SELECTOR, "#wfPassword")
+        login_btn = driver.find_element(By.CSS_SELECTOR, "#wfLoginBtn")
 
         assert email_input.is_displayed(), "Email input should be visible"
         assert password_input.is_displayed(), "Password input should be visible"
@@ -40,15 +40,15 @@ class TestCustomerLoginValid:
         """TC-LG-02: Valid credentials redirect to user dashboard."""
         navigate("login.php")
 
-        email_field = wait.until(EC.presence_of_element_located((By.ID, "wfEmail")))
+        email_field = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "#wfEmail")))
         email_field.clear()
         email_field.send_keys(TEST_CUSTOMER_EMAIL)
 
-        password_field = driver.find_element(By.ID, "wfPassword")
+        password_field = driver.find_element(By.CSS_SELECTOR, "#wfPassword")
         password_field.clear()
         password_field.send_keys(TEST_CUSTOMER_PASSWORD)
 
-        driver.find_element(By.ID, "wfLoginBtn").click()
+        driver.find_element(By.CSS_SELECTOR, "#wfLoginBtn").click()
         time.sleep(3)
 
         # After login, should redirect to userdashboard.php
@@ -64,15 +64,15 @@ class TestCustomerLoginValid:
 
         # Then login
         navigate("login.php")
-        email_field = wait.until(EC.presence_of_element_located((By.ID, "wfEmail")))
+        email_field = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "#wfEmail")))
         email_field.clear()
         email_field.send_keys(TEST_CUSTOMER_EMAIL)
 
-        password_field = driver.find_element(By.ID, "wfPassword")
+        password_field = driver.find_element(By.CSS_SELECTOR, "#wfPassword")
         password_field.clear()
         password_field.send_keys(TEST_CUSTOMER_PASSWORD)
 
-        driver.find_element(By.ID, "wfLoginBtn").click()
+        driver.find_element(By.CSS_SELECTOR, "#wfLoginBtn").click()
         time.sleep(3)
 
         assert "login.php" not in driver.current_url, \
@@ -86,15 +86,15 @@ class TestCustomerLoginInvalid:
         """TC-LG-04: Wrong email shows error message."""
         navigate("login.php")
 
-        email_field = wait.until(EC.presence_of_element_located((By.ID, "wfEmail")))
+        email_field = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "#wfEmail")))
         email_field.clear()
         email_field.send_keys("wronguser@invalid.com")
 
-        password_field = driver.find_element(By.ID, "wfPassword")
+        password_field = driver.find_element(By.CSS_SELECTOR, "#wfPassword")
         password_field.clear()
         password_field.send_keys("WrongPassword123")
 
-        driver.find_element(By.ID, "wfLoginBtn").click()
+        driver.find_element(By.CSS_SELECTOR, "#wfLoginBtn").click()
         time.sleep(2)
 
         # Should stay on login page with error
@@ -107,15 +107,15 @@ class TestCustomerLoginInvalid:
         """TC-LG-05: Correct email but wrong password shows error."""
         navigate("login.php")
 
-        email_field = wait.until(EC.presence_of_element_located((By.ID, "wfEmail")))
+        email_field = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "#wfEmail")))
         email_field.clear()
         email_field.send_keys(TEST_CUSTOMER_EMAIL)
 
-        password_field = driver.find_element(By.ID, "wfPassword")
+        password_field = driver.find_element(By.CSS_SELECTOR, "#wfPassword")
         password_field.clear()
         password_field.send_keys("CompletelyWrong!999")
 
-        driver.find_element(By.ID, "wfLoginBtn").click()
+        driver.find_element(By.CSS_SELECTOR, "#wfLoginBtn").click()
         time.sleep(2)
 
         assert "login.php" in driver.current_url, "Should stay on login page"
@@ -125,14 +125,14 @@ class TestCustomerLoginInvalid:
         navigate("login.php")
 
         # Only fill password
-        password_field = wait.until(EC.presence_of_element_located((By.ID, "wfPassword")))
+        password_field = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "#wfPassword")))
         password_field.clear()
         password_field.send_keys("SomePassword123")
 
-        email_field = driver.find_element(By.ID, "wfEmail")
+        email_field = driver.find_element(By.CSS_SELECTOR, "#wfEmail")
         email_field.clear()  # Ensure empty
 
-        driver.find_element(By.ID, "wfLoginBtn").click()
+        driver.find_element(By.CSS_SELECTOR, "#wfLoginBtn").click()
         time.sleep(1)
 
         # Should stay on login page (client-side validation)
@@ -143,14 +143,14 @@ class TestCustomerLoginInvalid:
         """TC-LG-07: Empty password field should prevent form submission."""
         navigate("login.php")
 
-        email_field = wait.until(EC.presence_of_element_located((By.ID, "wfEmail")))
+        email_field = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "#wfEmail")))
         email_field.clear()
         email_field.send_keys(TEST_CUSTOMER_EMAIL)
 
-        password_field = driver.find_element(By.ID, "wfPassword")
+        password_field = driver.find_element(By.CSS_SELECTOR, "#wfPassword")
         password_field.clear()  # Empty password
 
-        driver.find_element(By.ID, "wfLoginBtn").click()
+        driver.find_element(By.CSS_SELECTOR, "#wfLoginBtn").click()
         time.sleep(1)
 
         assert "login.php" in driver.current_url, \
@@ -164,13 +164,13 @@ class TestLoginUIElements:
         """TC-LG-08: Password toggle switches between visible/hidden."""
         navigate("login.php")
 
-        password_field = wait.until(EC.presence_of_element_located((By.ID, "wfPassword")))
+        password_field = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "#wfPassword")))
         password_field.send_keys("TestPassword123")
 
         assert password_field.get_attribute("type") == "password", \
             "Password should be hidden by default"
 
-        toggle = driver.find_element(By.ID, "wfTogglePassword")
+        toggle = driver.find_element(By.CSS_SELECTOR, "#wfTogglePassword")
         toggle.click()
         time.sleep(0.5)
 
@@ -187,7 +187,7 @@ class TestLoginUIElements:
         """TC-LG-09: Remember me checkbox is clickable."""
         navigate("login.php")
 
-        checkbox = wait.until(EC.presence_of_element_located((By.ID, "wfRememberMe")))
+        checkbox = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "#wfRememberMe")))
         assert not checkbox.is_selected(), "Remember me should be unchecked by default"
 
         checkbox.click()

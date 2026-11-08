@@ -26,6 +26,29 @@ def random_email():
     return f"test_{rand}@example.com"
 
 
+def accept_alert(wait):
+    """Wait for a JS alert, close it, and return its text."""
+    alert = wait.until(EC.alert_is_present())
+    text = alert.text
+    alert.accept()
+    return text
+
+
+def select_account_type(driver, wait, value):
+    """Tap the visible account-type card for `value` and return its radio.
+
+    The real <input type="radio"> is hidden (opacity 0, pointer-events none)
+    behind a styled card, so users tap the card - clicking the radio itself
+    raises ElementClickInterceptedException.
+    """
+    radio = wait.until(EC.presence_of_element_located(
+        (By.CSS_SELECTOR, f"input[name='account_type'][value='{value}']")
+    ))
+    card = radio.find_element(By.XPATH, "following-sibling::div[contains(@class, 'wf-account-option-content')]")
+    card.click()
+    return radio
+
+
 class TestRegistrationStepOne:
     """TC-RG-01 through TC-RG-05: Step 1 - Personal Info."""
 
@@ -33,7 +56,7 @@ class TestRegistrationStepOne:
         """TC-RG-01: Registration page loads with Step 1 active."""
         navigate("register.php")
 
-        form = wait.until(EC.presence_of_element_located((By.ID, "wfRegisterForm")))
+        form = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "#wfRegisterForm")))
         assert form.is_displayed(), "Registration form should be visible"
 
         # Step 1 should be active
@@ -56,7 +79,7 @@ class TestRegistrationStepOne:
         phone = driver.find_element(By.CSS_SELECTOR, "input[name='phone']")
         phone.send_keys("09123456789")
 
-        next_btn = driver.find_element(By.ID, "wfNextBtn")
+        next_btn = driver.find_element(By.CSS_SELECTOR, "#wfNextBtn")
         next_btn.click()
         time.sleep(1)
 
@@ -83,7 +106,7 @@ class TestRegistrationStepOne:
         phone = driver.find_element(By.CSS_SELECTOR, "input[name='phone']")
         phone.send_keys("09123456789")
 
-        next_btn = driver.find_element(By.ID, "wfNextBtn")
+        next_btn = driver.find_element(By.CSS_SELECTOR, "#wfNextBtn")
         next_btn.click()
         time.sleep(1)
 
@@ -109,7 +132,7 @@ class TestRegistrationStepOne:
         phone = driver.find_element(By.CSS_SELECTOR, "input[name='phone']")
         phone.send_keys("09123456789")
 
-        next_btn = driver.find_element(By.ID, "wfNextBtn")
+        next_btn = driver.find_element(By.CSS_SELECTOR, "#wfNextBtn")
         next_btn.click()
         time.sleep(1)
 
@@ -144,7 +167,7 @@ class TestRegistrationStepTwo:
         driver.find_element(By.CSS_SELECTOR, "input[name='lastName']").send_keys("User")
         driver.find_element(By.CSS_SELECTOR, "input[name='email']").send_keys(random_email())
         driver.find_element(By.CSS_SELECTOR, "input[name='phone']").send_keys("09123456789")
-        driver.find_element(By.ID, "wfNextBtn").click()
+        driver.find_element(By.CSS_SELECTOR, "#wfNextBtn").click()
         time.sleep(1)
 
     def test_rg06_step2_address_field(self, driver, navigate, wait):
@@ -160,23 +183,18 @@ class TestRegistrationStepTwo:
         """TC-RG-07: Selecting 'Regular' account type works."""
         self._go_to_step2(driver, navigate, wait)
 
-        regular_radio = wait.until(EC.presence_of_element_located(
-            (By.CSS_SELECTOR, "input[name='account_type'][value='Regular']")
-        ))
-        regular_radio.click()
+        regular_radio = select_account_type(driver, wait, "Regular")
         assert regular_radio.is_selected(), "Regular radio should be selected"
 
     def test_rg08_student_type_shows_upload(self, driver, navigate, wait):
         """TC-RG-08: Selecting 'Student' shows student ID upload field."""
         self._go_to_step2(driver, navigate, wait)
 
-        student_radio = wait.until(EC.presence_of_element_located(
-            (By.CSS_SELECTOR, "input[name='account_type'][value='Student']")
-        ))
-        student_radio.click()
+        student_radio = select_account_type(driver, wait, "Student")
+        assert student_radio.is_selected(), "Student radio should be selected"
         time.sleep(0.5)
 
-        student_section = driver.find_element(By.ID, "wfStudentSection")
+        student_section = driver.find_element(By.CSS_SELECTOR, "#wfStudentSection")
         # Check if displayed (the section visibility depends on JS)
         display = student_section.value_of_css_property("display")
         assert display != "none", "Student ID upload section should be visible"
@@ -195,21 +213,21 @@ class TestRegistrationStepThree:
         driver.find_element(By.CSS_SELECTOR, "input[name='lastName']").send_keys("User")
         driver.find_element(By.CSS_SELECTOR, "input[name='email']").send_keys(random_email())
         driver.find_element(By.CSS_SELECTOR, "input[name='phone']").send_keys("09123456789")
-        driver.find_element(By.ID, "wfNextBtn").click()
+        driver.find_element(By.CSS_SELECTOR, "#wfNextBtn").click()
         time.sleep(1)
 
         # Step 2: fill address and select Regular
         driver.find_element(By.CSS_SELECTOR, "input[name='address']").send_keys("123 Test St, Manila")
-        driver.find_element(By.CSS_SELECTOR, "input[name='account_type'][value='Regular']").click()
-        driver.find_element(By.ID, "wfNextBtn").click()
+        select_account_type(driver, wait, "Regular")
+        driver.find_element(By.CSS_SELECTOR, "#wfNextBtn").click()
         time.sleep(1)
 
     def test_rg09_step3_password_fields_visible(self, driver, navigate, wait):
         """TC-RG-09: Step 3 shows password and confirm password fields."""
         self._go_to_step3(driver, navigate, wait)
 
-        password = wait.until(EC.presence_of_element_located((By.ID, "wfPassword")))
-        confirm = driver.find_element(By.ID, "wfConfirmPassword")
+        password = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "#wfPassword")))
+        confirm = driver.find_element(By.CSS_SELECTOR, "#wfConfirmPassword")
 
         assert password.is_displayed(), "Password field should be visible"
         assert confirm.is_displayed(), "Confirm password field should be visible"
@@ -218,29 +236,33 @@ class TestRegistrationStepThree:
         """TC-RG-10: Typing password updates strength indicator."""
         self._go_to_step3(driver, navigate, wait)
 
-        password = wait.until(EC.presence_of_element_located((By.ID, "wfPassword")))
+        password = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "#wfPassword")))
         password.send_keys("StrongPass@123")
         time.sleep(1)
 
-        strength_text = driver.find_element(By.ID, "wfPwText")
+        strength_text = driver.find_element(By.CSS_SELECTOR, "#wfPwText")
         assert strength_text.is_displayed(), "Password strength text should be visible"
 
     def test_rg11_password_mismatch_prevented(self, driver, navigate, wait):
         """TC-RG-11: Mismatched passwords should prevent submission."""
         self._go_to_step3(driver, navigate, wait)
 
-        password = wait.until(EC.presence_of_element_located((By.ID, "wfPassword")))
+        password = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "#wfPassword")))
         password.send_keys("StrongPass@123")
 
-        confirm = driver.find_element(By.ID, "wfConfirmPassword")
+        confirm = driver.find_element(By.CSS_SELECTOR, "#wfConfirmPassword")
         confirm.send_keys("DifferentPass@456")
 
-        terms = driver.find_element(By.ID, "wfTerms")
+        terms = driver.find_element(By.CSS_SELECTOR, "#wfTerms")
         terms.click()
 
-        submit = driver.find_element(By.ID, "wfSubmitBtn")
+        submit = driver.find_element(By.CSS_SELECTOR, "#wfSubmitBtn")
         submit.click()
-        time.sleep(2)
+
+        # The page blocks submission with a JS alert - accept it first.
+        alert_text = accept_alert(wait)
+        assert "do not match" in alert_text.lower(), \
+            f"Expected a password mismatch alert, got: {alert_text!r}"
 
         # Should remain on register page
         assert "register.php" in driver.current_url, \
@@ -250,16 +272,20 @@ class TestRegistrationStepThree:
         """TC-RG-12: Terms checkbox must be checked to submit."""
         self._go_to_step3(driver, navigate, wait)
 
-        password = wait.until(EC.presence_of_element_located((By.ID, "wfPassword")))
+        password = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "#wfPassword")))
         password.send_keys("StrongPass@123")
 
-        confirm = driver.find_element(By.ID, "wfConfirmPassword")
+        confirm = driver.find_element(By.CSS_SELECTOR, "#wfConfirmPassword")
         confirm.send_keys("StrongPass@123")
 
         # Do NOT check terms
-        submit = driver.find_element(By.ID, "wfSubmitBtn")
+        submit = driver.find_element(By.CSS_SELECTOR, "#wfSubmitBtn")
         submit.click()
-        time.sleep(1)
+
+        # The page blocks submission with a JS alert - accept it first.
+        alert_text = accept_alert(wait)
+        assert "terms" in alert_text.lower(), \
+            f"Expected a terms-required alert, got: {alert_text!r}"
 
         assert "register.php" in driver.current_url, \
             "Should not submit without accepting terms"
@@ -268,7 +294,7 @@ class TestRegistrationStepThree:
         """TC-RG-13: Back button on Step 3 returns to Step 2."""
         self._go_to_step3(driver, navigate, wait)
 
-        prev_btn = wait.until(EC.element_to_be_clickable((By.ID, "wfPrevBtn")))
+        prev_btn = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "#wfPrevBtn")))
         prev_btn.click()
         time.sleep(1)
 

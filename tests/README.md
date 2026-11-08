@@ -57,10 +57,10 @@ Edit `tests/conftest.py` to set:
 
 ```python
 BASE_URL = "http://10.0.2.2:8000"    # 10.0.2.2 = host from Android emulator
-TEST_CUSTOMER_EMAIL = "your_test_email@example.com"
-TEST_CUSTOMER_PASSWORD = "YourPassword123"
-TEST_ADMIN_USERNAME = "admin"
-TEST_ADMIN_PASSWORD = "admin123"
+TEST_CUSTOMER_EMAIL = "testcustomer@example.com"
+TEST_CUSTOMER_PASSWORD = "Test@1234"
+TEST_ADMIN_USERNAME = "mangTV_landry"
+TEST_ADMIN_PASSWORD = "laundryShop12"
 ```
 
 > **Note:** `10.0.2.2` is the special IP that maps to your host machine's `localhost` from inside the Android emulator.

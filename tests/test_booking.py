@@ -55,30 +55,62 @@ class TestBookingAccess:
 class TestBookingForm:
     """TC-BK-04 through TC-BK-08: Booking form interaction tests."""
 
+    # book_service.php is a 4-step wizard. Delivery options, date/time and
+    # instructions live on step 3, which is hidden until steps 1-2 are done.
+    # The real radio/checkbox inputs are invisible (opacity 0,
+    # pointer-events none) behind styled cards, so we tap the cards.
+
+    def _go_to_step3(self, driver, navigate, wait):
+        """Pick a service, then click Next twice to reach step 3."""
+        navigate("book_service.php")
+
+        # Step 1: tap the first service card
+        service_card = wait.until(EC.element_to_be_clickable(
+            (By.CSS_SELECTOR, ".wf-service-opt .wf-service-box")
+        ))
+        service_card.click()
+        wait.until(EC.element_located_to_be_selected(
+            (By.CSS_SELECTOR, "input[name='service_ids[]']")
+        ))
+        wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "#wfNextBtn"))).click()
+
+        # Step 2: add-ons are optional, just continue
+        wait.until(EC.visibility_of_element_located(
+            (By.CSS_SELECTOR, ".wf-step-panel.active[data-step='2']")
+        ))
+        wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "#wfNextBtn"))).click()
+
+        wait.until(EC.visibility_of_element_located(
+            (By.CSS_SELECTOR, ".wf-step-panel.active[data-step='3']")
+        ))
+
+    def _select_delivery(self, driver, wait, value):
+        """Tap the delivery card for `value` and return its radio input."""
+        radio = wait.until(EC.presence_of_element_located(
+            (By.CSS_SELECTOR, f"input[name='delivery'][value='{value}']")
+        ))
+        card = radio.find_element(
+            By.XPATH, "following-sibling::div[contains(@class, 'wf-delivery-box')]"
+        )
+        card.click()
+        return radio
+
     def test_bk04_delivery_option_walkin(self, customer_login, navigate, wait):
         """TC-BK-04: Walk-in delivery option is selectable."""
-        navigate("book_service.php")
-        time.sleep(2)
+        self._go_to_step3(customer_login, navigate, wait)
 
-        walkin_options = customer_login.find_elements(
-            By.CSS_SELECTOR, "input[value='walkin'], input[value='Walk-in']"
-        )
-        if walkin_options:
-            walkin_options[0].click()
-            assert walkin_options[0].is_selected() or True, \
-                "Walk-in option should be selectable"
+        # Pick a different option first so selecting Walk-in is a real change
+        # (Walk-in is the default).
+        self._select_delivery(customer_login, wait, "delivery")
+        walkin = self._select_delivery(customer_login, wait, "walkin")
+        assert walkin.is_selected(), "Walk-in option should be selectable"
 
     def test_bk05_delivery_option_delivery(self, customer_login, navigate, wait):
         """TC-BK-05: Delivery option is selectable."""
-        navigate("book_service.php")
-        time.sleep(2)
+        self._go_to_step3(customer_login, navigate, wait)
 
-        delivery_options = customer_login.find_elements(
-            By.CSS_SELECTOR, "input[value='delivery'], input[value='Delivery']"
-        )
-        if delivery_options:
-            delivery_options[0].click()
-            time.sleep(0.5)
+        delivery = self._select_delivery(customer_login, wait, "delivery")
+        assert delivery.is_selected(), "Delivery option should be selectable"
 
     def test_bk06_date_field_present(self, customer_login, navigate, wait):
         """TC-BK-06: Drop-off date picker is present."""
@@ -102,16 +134,26 @@ class TestBookingForm:
 
     def test_bk08_instructions_field(self, customer_login, navigate, wait):
         """TC-BK-08: Special instructions textarea is present."""
-        navigate("book_service.php")
-        time.sleep(2)
+        self._go_to_step3(customer_login, navigate, wait)
 
-        textareas = customer_login.find_elements(
-            By.CSS_SELECTOR, "textarea[name='instructions'], textarea"
+        instructions = wait.until(EC.visibility_of_element_located(
+            (By.CSS_SELECTOR, "textarea[name='instructions']")
+        ))
+        text = "Please handle with care - delicate fabrics"
+        # Scroll into view without tapping (a tap can land on a sticky
+        # footer/nav bar on small screens); send_keys focuses the field itself.
+        customer_login.execute_script(
+            "arguments[0].scrollIntoView({block: 'center', behavior: 'instant'});",
+            instructions,
         )
-        if textareas:
-            textareas[0].send_keys("Please handle with care - delicate fabrics")
-            assert textareas[0].get_attribute("value") != "", \
-                "Should be able to type in instructions"
+        instructions.clear()
+        instructions.send_keys(text)
+        # Typed text lives in the DOM *property*, not the HTML attribute.
+        # Appium's get_attribute() returns the raw attribute (None for a
+        # <textarea>), so read the property instead.
+        value = instructions.get_property("value") or ""
+        assert text in value, \
+            f"Should be able to type in instructions, field contains: {value!r}"
 
 
 class TestBookingNavigation:
